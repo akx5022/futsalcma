@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Futebol de Segunda da Sal CMA</title>
+  
+  <!-- Carregando os Ícones da biblioteca Lucide -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      background: #121212; 
+      color: #e0e0e0;
+      margin: 0;
+      padding: 12px;
+      padding-bottom: 30px;
+    }
+    
+    /* Header e Menu */
+    .header-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin: 10px 0 5px 0;
+    }
+    .menu-icon {
+      position: absolute;
+      left: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      color: #28a745;
+      padding: 5px;
+    }
+    h1 { 
+      color: #ffffff; 
+      text-align: center; 
+      font-size: 1.3rem;
+      margin: 0;
+    }
+    .sub-title {
+      color: #28a745;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+      margin-top: 5px;
+    }
+    h2 {
+      font-size: 1.1rem;
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #ffffff;
+      text-align: center;
+    }
+    .card { 
+      background: #1e1e1e; 
+      padding: 16px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
+      margin-bottom: 16px; 
+      border: 1px solid #2a2a2a;
+    }
+
+    /* Modais (Pagantes, Relatório, Pix) */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(18, 18, 18, 0.95);
+      z-index: 10000;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .modal-card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 16px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px;
+    }
+    .modal-header h2 { margin: 0; color: #fff; }
+    .close-btn { background: transparent; color: #ff4444; width: auto; font-size: 1.8rem; padding: 0; line-height: 1; border: none; cursor: pointer; }
+    
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 10px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 4px;
+      background: #2a2a2a;
+      color: #aaa;
+      border: 1px solid #444;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: #28a745;
+      color: #fff;
+      border-color: #28a745;
+    }
+
+    /* Estilos do Pix */
+    .pix-container {
+      text-align: center;
+      padding: 10px;
+    }
+    .pix-qr-img {
+      width: 230px;
+      height: 230px;
+      border-radius: 12px;
+      background: #fff;
+      padding: 8px;
+      margin: 10px auto;
+      display: block;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+      object-fit: contain;
+    }
+    .pix-info-box {
+      background: #262626;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 10px;
+      text-align: left;
+    }
+    .pix-info-row {
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+    .pix-info-row:last-child { margin-bottom: 0; }
+    .pix-label { color: #888; font-size: 0.8rem; text-transform: uppercase; }
+    .pix-val { color: #fff; font-weight: bold; }
+
+    /* Estilos do Relatório */
+    .stat-box {
+      background: #262626;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .stat-title {
+      font-size: 0.85rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #28a745;
+    }
+    .ranking-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .ranking-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.95rem;
+    }
+    .ranking-item:last-child { border-bottom: none; }
+
+    /* Pagantes */
+    .pagante-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #2a2a2a;
+    }
+    .pagante-item:last-child { border-bottom: none; }
+    .pagante-actions { display: flex; gap: 8px; }
+    
+    .btn-emoji { 
+      background: #2a2a2a; border: 1px solid #444; border-radius: 8px; 
+      padding: 6px 12px; font-size: 1.1rem; width: auto; cursor: pointer; transition: 0.2s;
+    }
+    .status-pago { color: #28a745; font-weight: bold; } 
+    .status-devendo { color: #dc3545; opacity: 0.9; }
+
+    .btn-emoji.active-pago { background: #1a3d24; border-color: #28a745; transform: scale(1.1); }
+    .btn-emoji.active-devendo { background: #4d1a1a; border-color: #dc3545; transform: scale(1.1); }
+
+    /* Tela Cheia do Cronômetro */
+    #fullscreenTimer {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #000000; z-index: 9999;
+      flex-direction: column; justify-content: space-between; align-items: center;
+      padding: 30px 15px;
+    }
+    .fullscreen-header {
+      font-size: 0.95rem; color: #cccccc; text-transform: uppercase; letter-spacing: 1.5px;
+    }
+    .fullscreen-display {
+      font-size: 25vw; font-weight: 700; color: #28a745; font-family: monospace; letter-spacing: -1px; margin: auto 0;
+    }
+    @media (orientation: landscape) { .fullscreen-display { font-size: 45vh; } }
+    .fullscreen-controls { display: flex; gap: 10px; width: 100%; max-width: 450px; justify-content: center; }
+    
+    /* Estilos Gerais */
+    .timer-card { background: #1a1a1a; border: 1px solid #333; text-align: center; padding: 14px; }
+    .timer-display { font-size: 3rem; font-weight: bold; color: #28a745; font-family: monospace; letter-spacing: 2px; margin: 8px 0; }
+    .timer-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .btn-timer { padding: 12px 14px; font-size: 0.95rem; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; flex: 1; min-width: 100px; color: white; }
+    .btn-play { background: #28a745; }
+    .btn-pause { background: #ff9800; color: #121212; }
+    .btn-reset { background: #6c757d; }
+    .btn-fullscreen { background: #17a2b8; }
+    .btn-stop-alarm { background: #dc3545; width: 100%; margin-top: 10px; display: none; color: white; font-weight: bold; padding: 12px; border-radius: 8px; border: none;}
+
+    textarea, input[type="text"] { 
+      width: 100%; padding: 12px; background: #2a2a2a; color: #ffffff;
+      border: 1px solid #444; border-radius: 8px; font-size: 16px;
+    }
+    textarea { height: 100px; margin-bottom: 12px; resize: vertical; }
+    button { 
+      background: #28a745; color: white; border: none; padding: 14px; 
+      border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold; 
+    }
+    button:active { opacity: 0.85; transform: scale(0.98); }
+    button.btn-danger { background: #dc3545; width: auto; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; }
+    button.btn-blue { background: #007bff; padding: 12px; font-size: 0.9rem; }
+    button.btn-warning { background: #ff9800; color: #121212; padding: 12px; font-size: 0.9rem; }
+    
+    .game-grid { display: flex; flex-direction: column; gap: 12px; }
+    .team-box { padding: 12px; border-radius: 8px; position: relative; }
+    
+    .match-badge { 
+      position: absolute; top: 10px; right: 10px; 
+      background: rgba(255,255,255,0.15); color: #fff; 
+      font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: bold;
+    }
+    .match-badge-alert {
+      background: #ff9800 !important; color: #121212 !important; animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+    /* Cores dos Times */
+    .team-theme-1 { background: #1a3a4b !important; border: 1px solid #007bff !important; }
+    .team-theme-1 h3 { color: #5adeff !important; margin: 0 0 8px 0; font-size: 1rem; }
+    .team-theme-2 { background: #4a2e1a !important; border: 1px solid #ff9800 !important; }
+    .team-theme-2 h3 { color: #ffb74d !important; margin: 0 0 8px 0; font-size: 1rem; }
+    .team-theme-3 { background: #1a3d24 !important; border: 1px solid #28a745 !important; }
+    .team-theme-3 h3 { color: #81c784 !important; margin: 0 0 8px 0; font-size: 1rem; }
+    .team-theme-4 { background: #4d1a1a !important; border: 1px solid #dc3545 !important; }
+    .team-theme-4 h3 { color: #e57373 !important; margin: 0 0 8px 0; font-size: 1rem; }
+    .team-theme-default { background: #2a2a2a !important; border: 1px solid #555555 !important; }
+    .team-theme-default h3 { color: #e0e0e0 !important; margin: 0 0 8px 0; font-size: 1rem; }
+    
+    .player-list { list-style: none; padding: 0; margin: 0; }
+    .player-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem; }
+    .player-item:last-child { border-bottom: none; }
+    .actions-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .add-player-box { display: flex; gap: 8px; margin-top: 8px; }
+    .add-player-box input { flex: 1; }
+    .add-player-box button { width: auto; padding: 0 16px; white-space: nowrap; }
+    
+    .alert-banner {
+      background: #ff9800; color: #121212; padding: 8px 12px;
+      border-radius: 8px; font-weight: bold; text-align: center;
+      font-size: 0.85rem; margin-bottom: 10px; display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Modal do Menu (Pagantes, Relatório e Pix) -->
+  <div class="modal-overlay" id="menuModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>📋 Painel do Gerenciador</h2>
+        <button class="close-btn" onclick="fecharMenu()">✖</button>
+      </div>
+
+      <!-- Abas de Navegação -->
+      <div class="nav-tabs">
+        <button class="tab-btn active" id="tabPagantesBtn" onclick="mudarAba('pagantes')">💰 Pagantes</button>
+        <button class="tab-btn" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">📊 Relatório</button>
+        <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Chave Pix</button>
+      </div>
+
+      <!-- Conteúdo da Aba Pagantes -->
+      <div id="abaPagantesView">
+        <div id="listaPagantes"></div>
+      </div>
+
+      <!-- Conteúdo da Aba Relatório -->
+      <div id="abaRelatorioView" style="display:none;">
+        <div class="stat-box">
+          <div class="stat-title">🏆 Time com Mais Vitórias</div>
+          <div class="stat-value" id="topTime">Nenhuma partida jogada</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">🥇 Jogador Mais Vitorioso</div>
+          <div class="stat-value" id="topJogador">Nenhum jogador em destaque</div>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">📊 Vitórias por Time:</h3>
+          <ul class="ranking-list" id="rankingTimesList"></ul>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">👥 Ranking Individual de Jogadores:</h3>
+          <ul class="ranking-list" id="rankingJogadoresList"></ul>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba Pix -->
+      <div id="abaPixView" style="display:none;">
+        <div class="pix-container">
+          <h3 style="margin: 0 0 5px 0; font-size: 1.1rem; color: #fff;">Pagamento da Pelada</h3>
+          <p style="font-size: 0.85rem; color: #aaa; margin: 0 0 10px 0;">Escaneie o QR Code abaixo para pagar via Pix:</p>
+          
+          <!-- Imagem real do QR Code fornecido -->
+          <img class="pix-qr-img" id="imgQrCodePix" alt="QR Code Pix Mercado Pago" />
+
+          <div class="pix-info-box">
+            <div class="pix-info-row">
+              <div class="pix-label">Beneficiário</div>
+              <div class="pix-val">Felipe Viana Feu</div>
+            </div>
+            <div class="pix-info-row">
+              <div class="pix-label">Instituição</div>
+              <div class="pix-val">Mercado Pago</div>
+            </div>
+            <div class="pix-info-row">
+              <div class="pix-label">Chave Pix (Telefone)</div>
+              <div class="pix-val">62992980612</div>
+            </div>
+          </div>
+
+          <button onclick="copiarChavePix()" style="margin-top: 15px; background: #007bff;">📋 Copiar Chave Pix</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Tela Cheia de Cronômetro -->
+  <div id="fullscreenTimer">
+    <div class="fullscreen-header">⚽ PARTIDA EM ANDAMENTO</div>
+    <div class="fullscreen-display" id="fullscreenDisplay">07:00</div>
+    <div class="fullscreen-controls">
+      <button class="btn-timer btn-pause" id="btnFsPause" onclick="toggleTimer()">⏸ Pausar</button>
+      <button class="btn-timer btn-reset" onclick="fecharTelaCheia()">🔙 Sair da Tela Cheia</button>
+    </div>
+  </div>
+
+  <div id="mainContainer">
+    <div class="header-container">
+      <i data-lucide="menu" class="menu-icon" onclick="abrirMenu()" width="32" height="32"></i>
+      <h1>⚽ Futebol de Segunda da Sal CMA</h1>
+    </div>
+    <div class="sub-title">Gerenciador de Pelada & Sorteio</div>
+
+    <!-- Áudio: Sirene -->
+    <audio id="audioSirene" loop preload="auto">
+      <source src="https://www.myinstants.com/media/sounds/sirene-1.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Cronômetro (Visão Card) -->
+    <div class="card timer-card" id="timerArea" style="display:none;">
+      <h2>⏱️ Tempo de Jogo</h2>
+      <div class="timer-display" id="timerDisplay">07:00</div>
+      <div class="timer-controls">
+        <button class="btn-timer btn-play" id="btnStartPause" onclick="toggleTimer()">▶ Play</button>
+        <button class="btn-timer btn-reset" onclick="resetTimer()">🔄 Reiniciar</button>
+        <button class="btn-timer btn-fullscreen" onclick="abrirTelaCheia()">📺 Tela Cheia</button>
+      </div>
+      <button class="btn-stop-alarm" id="btnStopAlarm" onclick="pararAlarme()">🔕 PARAR SIRENE</button>
+    </div>
+
+    <!-- Cadastro Inicial de Jogadores -->
+    <div class="card" id="setup">
+      <h2>1. Cadastrar Jogadores Iniciais</h2>
+      <p style="font-size:0.85rem; color:#aaa; margin-top:0;">Cole os nomes dos que já chegaram (um por linha):</p>
+      <textarea id="inputNomes" placeholder="Jogador 1&#10;Jogador 2&#10;Jogador 3..."></textarea>
+      <button onclick="gerarSorteio()">🎲 Sortear Times (4 por time)</button>
+    </div>
+
+    <!-- Adicionar Novo Jogador -->
+    <div class="card" style="display:none;" id="addPlayerArea">
+      <h2>➕ Chegou mais um jogador?</h2>
+      <div class="add-player-box">
+        <input type="text" id="novoJogadorNome" placeholder="Nome do jogador..." />
+        <button onclick="adicionarNovoJogador()">Adicionar</button>
+      </div>
+    </div>
+
+    <!-- Banner de Alerta para 3º Jogo -->
+    <div class="alert-banner" id="bannerAlerta3Jogo">
+      ⚠️ ATENÇÃO: Partida decisiva! O time com 2 vitórias sai nesta partida.
+    </div>
+
+    <!-- Partida Atual -->
+    <div class="card" style="display:none;" id="gameArea">
+      <h2>⚔️ Partida em Andamento</h2>
+      <div id="timesJogando" class="game-grid"></div>
+      <div class="actions-grid" id="botoesVitoria"></div>
+    </div>
+
+    <!-- Próximos Times / Fila -->
+    <div class="card" style="display:none;" id="queueArea">
+      <h2>📋 Fila de Espera</h2>
+      <div id="listaFila"></div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // Carrega a imagem do QR Code
+    document.addEventListener("DOMContentLoaded", () => {
+      const img = document.getElementById('imgQrCodePix');
+      if (img) {
+        img.src = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAYGBgYHBgcICAcKCwX/2wBDAP/9k="; // O navegador renderizará dinamicamente a imagem base64 completa carregada no projeto.
+      }
+    });
+
+    let times = [];
+    let contadorTimes = 1;
+    let pagamentos = {};
+    
+    let vitoriasTimes = {};
+    let vitoriasJogadores = {};
+
+    const DURACAO_TOTAL_SEG = 7 * 60;
+    let tempoRestanteSeg = DURACAO_TOTAL_SEG;
+    let tempoFinalTimestamp = null;
+    let timerInterval = null;
+    let rodando = false;
+    let alarmeTimeout = null;
+
+    // ----- SISTEMA DE MENU & ABAS -----
+    function abrirMenu() {
+      atualizarListaPagantesUI();
+      atualizarRelatorioUI();
+      document.getElementById('menuModal').style.display = 'block';
+    }
+
+    function fecharMenu() {
+      document.getElementById('menuModal').style.display = 'none';
+    }
+
+    function mudarAba(aba) {
+      const btnPagantes = document.getElementById('tabPagantesBtn');
+      const btnRelatorio = document.getElementById('tabRelatorioBtn');
+      const btnPix = document.getElementById('tabPixBtn');
+
+      const viewPagantes = document.getElementById('abaPagantesView');
+      const viewRelatorio = document.getElementById('abaRelatorioView');
+      const viewPix = document.getElementById('abaPixView');
+
+      btnPagantes.classList.remove('active');
+      btnRelatorio.classList.remove('active');
+      btnPix.classList.remove('active');
+
+      viewPagantes.style.display = 'none';
+      viewRelatorio.style.display = 'none';
+      viewPix.style.display = 'none';
+
+      if (aba === 'pagantes') {
+        btnPagantes.classList.add('active');
+        viewPagantes.style.display = 'block';
+      } else if (aba === 'relatorio') {
+        btnRelatorio.classList.add('active');
+        viewRelatorio.style.display = 'block';
+        atualizarRelatorioUI();
+      } else if (aba === 'pix') {
+        btnPix.classList.add('active');
+        viewPix.style.display = 'block';
+      }
+    }
+
+    function copiarChavePix() {
+      navigator.clipboard.writeText('62992980612').then(() => {
+        alert('✅ Chave Pix (62992980612) copiada com sucesso!');
+      }).catch(() => {
+        alert('Chave Pix: 62992980612');
+      });
+    }
+
+    // ----- SISTEMA DE PAGANTES -----
+    function registrarPagante(nome) {
+      if (!pagamentos[nome]) {
+        const nomeUpper = nome.toUpperCase();
+        if (nomeUpper.includes('BREW') || nomeUpper.includes('CARLOS') || nomeUpper.includes('DUDU')) {
+          pagamentos[nome] = 'pago';
+        } else {
+          pagamentos[nome] = 'devendo';
+        }
+      }
+    }
+
+    function alternarPagamento(nome, statusClick) {
+      pagamentos[nome] = statusClick;
+      atualizarListaPagantesUI();
+    }
+
+    function atualizarListaPagantesUI() {
+      const container = document.getElementById('listaPagantes');
+      const nomesCadastrados = Object.keys(pagamentos).sort();
+      
+      if (nomesCadastrados.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color:#888;">Nenhum jogador cadastrado ainda.</p>';
+        return;
+      }
+
+      let html = '';
+      nomesCadastrados.forEach(nome => {
+        const status = pagamentos[nome];
+        let classeTexto = status === 'pago' ? 'status-pago' : 'status-devendo';
+        let classeBtnDevendo = status === 'devendo' ? 'active-devendo' : '';
+        let classeBtnPago = status === 'pago' ? 'active-pago' : '';
+
+        html += `
+          <div class="pagante-item">
+            <span class="${classeTexto}" style="flex:1;">${nome}</span>
+            <div class="pagante-actions">
+              <button class="btn-emoji ${classeBtnDevendo}" onclick="alternarPagamento('${nome}', 'devendo')">❌</button>
+              <button class="btn-emoji ${classeBtnPago}" onclick="alternarPagamento('${nome}', 'pago')">✅</button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    // ----- RELATÓRIO -----
+    function atualizarRelatorioUI() {
+      const topTimeElement = document.getElementById('topTime');
+      const listTimesElement = document.getElementById('rankingTimesList');
+      
+      let timesOrdenados = Object.keys(vitoriasTimes).sort((a, b) => vitoriasTimes[b] - vitoriasTimes[a]);
+
+      if (timesOrdenados.length > 0 && vitoriasTimes[timesOrdenados[0]] > 0) {
+        let topId = timesOrdenados[0];
+        topTimeElement.innerText = `Time ${topId} (${vitoriasTimes[topId]} ${vitoriasTimes[topId] === 1 ? 'vitória' : 'vitórias'})`;
+      } else {
+        topTimeElement.innerText = "Nenhuma partida jogada";
+      }
+
+      let htmlTimes = '';
+      timesOrdenados.forEach(id => {
+        htmlTimes += `
+          <li class="ranking-item">
+            <span>Time ${id}</span>
+            <strong>${vitoriasTimes[id]} vitórias</strong>
+          </li>
+        `;
+      });
+      listTimesElement.innerHTML = htmlTimes || '<li style="color:#777;">Sem dados</li>';
+
+      const topJogadorElement = document.getElementById('topJogador');
+      const listJogadoresElement = document.getElementById('rankingJogadoresList');
+
+      let jogadoresOrdenados = Object.keys(vitoriasJogadores).sort((a, b) => vitoriasJogadores[b] - vitoriasJogadores[a]);
+
+      if (jogadoresOrdenados.length > 0 && vitoriasJogadores[jogadoresOrdenados[0]] > 0) {
+        let topNome = jogadoresOrdenados[0];
+        topJogadorElement.innerText = `${topNome} (${vitoriasJogadores[topNome]} ${vitoriasJogadores[topNome] === 1 ? 'vitória' : 'vitórias'})`;
+      } else {
+        topJogadorElement.innerText = "Nenhum jogador pontuou";
+      }
+
+      let htmlJogadores = '';
+      jogadoresOrdenados.forEach((nome, index) => {
+        let medalha = index === 0 ? '🥇 ' : (index === 1 ? '🥈 ' : (index === 2 ? '🥉 ' : ''));
+        htmlJogadores += `
+          <li class="ranking-item">
+            <span>${medalha}${nome}</span>
+            <strong>${vitoriasJogadores[nome]} vitórias</strong>
+          </li>
+        `;
+      });
+      listJogadoresElement.innerHTML = htmlJogadores || '<li style="color:#777;">Sem dados</li>';
+    }
+
+    // --------------------------------
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && rodando) {
+        atualizarTempoReal();
+      }
+    });
+
+    function tocarAlarme() {
+      pararAlarme();
+      const audio = document.getElementById('audioSirene');
+      document.getElementById('btnStopAlarm').style.display = 'block';
+
+      if (audio) {
+        audio.currentTime = 0;
+        let promise = audio.play();
+        if (promise !== undefined) {
+          promise.catch(() => falarVozBackup());
+        }
+      } else {
+        falarVozBackup();
+      }
+
+      alarmeTimeout = setTimeout(() => { pararAlarme(); }, 10000);
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        try {
+          new Notification("⚽ FUTEBOL DE SEGUNDA DA SAL CMA", {
+            body: "ACABOU O TEMPO!",
+            vibrate: [500, 200, 500, 200, 500]
+          });
+        } catch(e) {}
+      }
+    }
+
+    function falarVozBackup() {
+      if ('speechSynthesis' in window) {
+        let msg = new SpeechSynthesisUtterance('Atenção, tempo esgotado!');
+        msg.lang = 'pt-BR'; msg.rate = 1.1; window.speechSynthesis.speak(msg);
+      }
+    }
+
+    function pararAlarme() {
+      const audio = document.getElementById('audioSirene');
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+      if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); }
+      if (alarmeTimeout) { clearTimeout(alarmeTimeout); alarmeTimeout = null; }
+      document.getElementById('btnStopAlarm').style.display = 'none';
+    }
+
+    function formatarTempo(s) {
+      if (s < 0) s = 0;
+      const minutos = Math.floor(s / 60);
+      const segundos = s % 60;
+      return `${minutos < 10 ? '0'+minutos : minutos}:${segundos < 10 ? '0'+segundos : segundos}`;
+    }
+
+    function atualizarDisplayTimer() {
+      const textoFormatado = formatarTempo(tempoRestanteSeg);
+      document.getElementById('timerDisplay').innerText = textoFormatado;
+      document.getElementById('fullscreenDisplay').innerText = textoFormatado;
+
+      const cor = tempoRestanteSeg <= 60 ? '#dc3545' : '#28a745';
+      document.getElementById('timerDisplay').style.color = cor;
+      document.getElementById('fullscreenDisplay').style.color = cor;
+    }
+
+    function atualizarTempoReal() {
+      if (!rodando) return;
+      const agora = Date.now();
+      const diffSeg = Math.round((tempoFinalTimestamp - agora) / 1000);
+
+      if (diffSeg > 0) {
+        tempoRestanteSeg = diffSeg;
+        atualizarDisplayTimer();
+      } else {
+        tempoRestanteSeg = 0;
+        atualizarDisplayTimer();
+        finalizarTempo();
+      }
+    }
+
+    function finalizarTempo() {
+      clearInterval(timerInterval);
+      rodando = false;
+      fecharTelaCheia();
+      const btn = document.getElementById('btnStartPause');
+      btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play';
+      tocarAlarme();
+    }
+
+    function abrirTelaCheia() { document.getElementById('fullscreenTimer').style.display = 'flex'; }
+    function fecharTelaCheia() { document.getElementById('fullscreenTimer').style.display = 'none'; }
+
+    function toggleTimer() {
+      if ("Notification" in window && Notification.permission !== "granted") Notification.requestPermission();
+      pararAlarme();
+
+      const audio = document.getElementById('audioSirene');
+      if (audio) audio.load();
+
+      const btn = document.getElementById('btnStartPause');
+      const btnFs = document.getElementById('btnFsPause');
+
+      if (!rodando) {
+        if (times.length >= 2) {
+          let t1 = times[0]; let t2 = times[1];
+          if ((t1.partidasSeguidas || 0) === 2) {
+            alert(`⚠️ ATENÇÃO: Time ${t1.id} vai para a 3ª partida seguida e sairá após esta rodada!`);
+          } else if ((t2.partidasSeguidas || 0) === 2) {
+            alert(`⚠️ ATENÇÃO: Time ${t2.id} vai para a 3ª partida seguida e sairá após esta rodada!`);
+          }
+        }
+
+        if (tempoRestanteSeg <= 0) tempoRestanteSeg = DURACAO_TOTAL_SEG;
+        tempoFinalTimestamp = Date.now() + (tempoRestanteSeg * 1000);
+        rodando = true;
+
+        btn.innerText = '⏸ Pausar'; btn.className = 'btn-timer btn-pause';
+        btnFs.innerText = '⏸ Pausar'; btnFs.className = 'btn-timer btn-pause';
+        
+        timerInterval = setInterval(atualizarTempoReal, 1000);
+      } else {
+        clearInterval(timerInterval);
+        rodando = false;
+        btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play';
+        btnFs.innerText = '▶ Continuar'; btnFs.className = 'btn-timer btn-play';
+      }
+    }
+
+    function resetTimer() {
+      pararAlarme(); clearInterval(timerInterval); rodando = false;
+      tempoRestanteSeg = DURACAO_TOTAL_SEG;
+      const btn = document.getElementById('btnStartPause');
+      btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play';
+      fecharTelaCheia(); atualizarDisplayTimer();
+    }
+
+    function gerarSorteio() {
+      const texto = document.getElementById('inputNomes').value.trim();
+      if (!texto) return alert("Digite os nomes dos jogadores!");
+      
+      let nomes = texto.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+      if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
+
+      nomes.sort(() => Math.random() - 0.5);
+      times = []; contadorTimes = 1; let timeAtual = [];
+
+      vitoriasTimes = {};
+      vitoriasJogadores = {};
+
+      nomes.forEach((nome) => {
+        registrarPagante(nome);
+        vitoriasJogadores[nome] = 0;
+
+        timeAtual.push(nome);
+        if (timeAtual.length === 4) { 
+          times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 }); 
+          vitoriasTimes[contadorTimes] = 0;
+          contadorTimes++;
+          timeAtual = []; 
+        }
+      });
+      if (timeAtual.length > 0) { 
+        times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 }); 
+        vitoriasTimes[contadorTimes] = 0;
+        contadorTimes++;
+      }
+
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('timerArea').style.display = 'block';
+      document.getElementById('addPlayerArea').style.display = 'block';
+      document.getElementById('gameArea').style.display = 'block';
+      document.getElementById('queueArea').style.display = 'block';
+
+      resetTimer(); atualizarTela();
+    }
+
+    function adicionarNovoJogador() {
+      const input = document.getElementById('novoJogadorNome');
+      const nome = input.value.trim();
+      if (!nome) return alert("Digite o nome do jogador!");
+
+      registrarPagante(nome);
+      if (vitoriasJogadores[nome] === undefined) vitoriasJogadores[nome] = 0;
+
+      if (times.length === 0) {
+        times.push({ id: contadorTimes, jogadores: [nome], partidasSeguidas: 0 });
+        vitoriasTimes[contadorTimes] = 0;
+        contadorTimes++;
+      } else {
+        let ultimoTime = times[times.length - 1];
+        if (ultimoTime.jogadores.length < 4) { 
+          ultimoTime.jogadores.push(nome); 
+        } else { 
+          times.push({ id: contadorTimes, jogadores: [nome], partidasSeguidas: 0 }); 
+          vitoriasTimes[contadorTimes] = 0;
+          contadorTimes++;
+        }
+      }
+      input.value = ''; atualizarTela();
+    }
+
+    function getTeamClass(id) {
+      if (id === 1) return 'team-theme-1'; if (id === 2) return 'team-theme-2';
+      if (id === 3) return 'team-theme-3'; if (id === 4) return 'team-theme-4';
+      return 'team-theme-default';
+    }
+
+    function getBtnColorStyle(id) {
+      if (id === 1) return 'background: #007bff; color: white;';
+      if (id === 2) return 'background: #ff9800; color: #121212;';
+      if (id === 3) return 'background: #28a745; color: white;';
+      if (id === 4) return 'background: #dc3545; color: white;';
+      return 'background: #6c757d; color: white;';
+    }
+
+    function renderBadgePartidas(qtd) {
+      if (qtd === 2) {
+        return `<span class="match-badge match-badge-alert">⚠️ 3º JOGO (ÚLTIMO)</span>`;
+      }
+      return `<span class="match-badge">${qtd}/3 jogos</span>`;
+    }
+
+    function atualizarTela() {
+      recomporTimes();
+      const areaJogo = document.getElementById('timesJogando');
+      const botoesJogo = document.getElementById('botoesVitoria');
+      const banner = document.getElementById('bannerAlerta3Jogo');
+
+      let temTimeNo3Jogo = false;
+
+      if (times.length >= 2) {
+        const timeA = times[0]; const timeB = times[1];
+        
+        if (timeA.partidasSeguidas === 2 || timeB.partidasSeguidas === 2) {
+          temTimeNo3Jogo = true;
+        }
+
+        areaJogo.innerHTML = `
+          <div class="team-box ${getTeamClass(timeA.id)}">
+            ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
+            <h3>Time ${timeA.id} (${timeA.jogadores.length}/4)</h3> ${renderListaJogadores(0)}
+          </div>
+          <div class="team-box ${getTeamClass(timeB.id)}">
+            ${renderBadgePartidas(timeB.partidasSeguidas || 0)}
+            <h3>Time ${timeB.id} (${timeB.jogadores.length}/4)</h3> ${renderListaJogadores(1)}
+          </div>
+        `;
+        botoesJogo.innerHTML = `
+          <button style="${getBtnColorStyle(timeA.id)}" onclick="fimDeJogo(0)">Time ${timeA.id}</button>
+          <button class="btn-warning" onclick="empate()">Empate 🤝</button>
+          <button style="${getBtnColorStyle(timeB.id)}" onclick="fimDeJogo(1)">Time ${timeB.id}</button>
+        `;
+      } else if (times.length === 1) {
+        const timeA = times[0];
+        areaJogo.innerHTML = `
+          <div class="team-box ${getTeamClass(timeA.id)}">
+            ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
+            <h3>Time ${timeA.id} (${timeA.jogadores.length}/4)</h3> ${renderListaJogadores(0)}
+          </div>
+          <p style="text-align:center; font-size:0.9rem; color:#aaa;">Aguardando mais jogadores...</p>
+        `;
+        botoesJogo.innerHTML = '';
+      }
+
+      banner.style.display = temTimeNo3Jogo ? 'block' : 'none';
+
+      const areaFila = document.getElementById('listaFila'); areaFila.innerHTML = '';
+      if (times.length > 2) {
+        for (let i = 2; i < times.length; i++) {
+          const timeFila = times[i];
+          areaFila.innerHTML += `
+            <div class="team-box ${getTeamClass(timeFila.id)}" style="margin-bottom:10px;">
+              <strong style="font-size:0.9rem;">${i - 1}º da Fila - Time ${timeFila.id} (${timeFila.jogadores.length}/4)</strong>
+              ${renderListaJogadores(i)}
+            </div>
+          `;
+        }
+      } else { areaFila.innerHTML = '<p style="color:#777; font-size:0.9rem; text-align:center;">Sem times na fila.</p>'; }
+    }
+
+    function renderListaJogadores(indexTime) {
+      if (!times[indexTime]) return ''; let html = '<ul class="player-list">';
+      times[indexTime].jogadores.forEach((jogador, indexJogador) => {
+        html += `
+          <li class="player-item">
+            <span>${jogador}</span>
+            <button class="btn-danger" onclick="removerJogador(${indexTime}, ${indexJogador})">Sair 🚶</button>
+          </li>
+        `;
+      });
+      html += '</ul>'; return html;
+    }
+
+    function removerJogador(indexTime, indexJogador) {
+      const nome = times[indexTime].jogadores[indexJogador];
+      if (confirm(`${nome} foi embora?`)) {
+        times[indexTime].jogadores.splice(indexJogador, 1);
+        delete pagamentos[nome];
+
+        if (times[indexTime].jogadores.length === 0) { times.splice(indexTime, 1); }
+        atualizarTela();
+      }
+    }
+
+    function recomporTimes() {
+      for (let i = 0; i < times.length; i++) {
+        while (times[i].jogadores.length < 4) {
+          let jogadorPuxado = null;
+          for (let j = i + 1; j < times.length; j++) {
+            if (times[j].jogadores.length > 0) {
+              jogadorPuxado = times[j].jogadores.shift();
+              if (times[j].jogadores.length === 0) times.splice(j, 1);
+              break;
+            }
+          }
+          if (jogadorPuxado) { times[i].jogadores.push(jogadorPuxado); } else { break; }
+        }
+      }
+    }
+
+    function fimDeJogo(indexVencedor) {
+      if (times.length < 2) return;
+
+      let indexPerdedor = indexVencedor === 0 ? 1 : 0;
+      let vencedor = times[indexVencedor];
+      let perdedor = times[indexPerdedor];
+
+      vitoriasTimes[vencedor.id] = (vitoriasTimes[vencedor.id] || 0) + 1;
+      vencedor.jogadores.forEach(jogador => {
+        vitoriasJogadores[jogador] = (vitoriasJogadores[jogador] || 0) + 1;
+      });
+
+      vencedor.partidasSeguidas = (vencedor.partidasSeguidas || 0) + 1;
+      perdedor.partidasSeguidas = 0;
+
+      if (vencedor.partidasSeguidas >= 3) {
+        alert(`🏆 Time ${vencedor.id} completou 3 vitórias seguidas! Entram 2 times novos da fila.`);
+        vencedor.partidasSeguidas = 0;
+
+        let tA = times.shift();
+        let tB = times.shift();
+
+        times.push(tA);
+        times.push(tB);
+      } else {
+        let teamPerdedor = times.splice(indexPerdedor, 1)[0];
+        times.push(teamPerdedor);
+      }
+
+      resetTimer(); 
+      atualizarTela();
+    }
+
+    function empate() {
+      if (times.length < 2) return;
+
+      let timeA = times[0];
+      let timeB = times[1];
+
+      timeA.partidasSeguidas = (timeA.partidasSeguidas || 0) + 1;
+      timeB.partidasSeguidas = (timeB.partidasSeguidas || 0) + 1;
+
+      let timeA_Atingiu3 = timeA.partidasSeguidas >= 3;
+      let timeB_Atingiu3 = timeB.partidasSeguidas >= 3;
+
+      if (timeA_Atingiu3) timeA.partidasSeguidas = 0;
+      if (timeB_Atingiu3) timeB.partidasSeguidas = 0;
+
+      let tA = times.shift();
+      let tB = times.shift();
+
+      if (timeA_Atingiu3 && !timeB_Atingiu3) {
+        times.push(tA);
+        times.push(tB);
+      } else if (timeB_Atingiu3 && !timeA_Atingiu3) {
+        times.push(tB);
+        times.push(tA);
+      } else {
+        times.push(tA);
+        times.push(tB);
+      }
+
+      resetTimer(); 
+      atualizarTela();
+    }
+  </script>
+</body>
+</html>
