@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Futebol de Segunda da Sal CMA</title>
@@ -289,12 +290,33 @@
 <body>
 
   <!-- Modal do Menu (Pagantes, Relatório e Pix) -->
-  <div class="modal-overlay" id="menuModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>📋 Painel do Gerenciador</h2>
-        <button class="close-btn" onclick="fecharMenu()">✖</button>
+  <!-- Conteúdo da Aba Pix -->
+<div id="abaPixView" style="display:none;">
+  <div class="pix-container">
+    <h3 style="margin: 0 0 5px 0; font-size: 1.1rem; color: #fff;">Pagamento da Pelada</h3>
+    <p style="font-size: 0.85rem; color: #aaa; margin: 0 0 10px 0;">Escaneie o QR Code abaixo para pagar via Pix:</p>
+    
+    <!-- Div onde o QR Code será gerado automaticamente -->
+    <div id="qrcodeCanvas" style="display: flex; justify-content: center; margin: 15px 0;"></div>
+
+    <div class="pix-info-box">
+      <div class="pix-info-row">
+        <div class="pix-label">Beneficiário</div>
+        <div class="pix-val">Felipe Viana Feu</div>
       </div>
+      <div class="pix-info-row">
+        <div class="pix-label">Instituição</div>
+        <div class="pix-val">Mercado Pago</div>
+      </div>
+      <div class="pix-info-row">
+        <div class="pix-label">Chave Pix (Telefone)</div>
+        <div class="pix-val">62992980612</div>
+      </div>
+    </div>
+
+    <button onclick="copiarChavePix()" style="margin-top: 15px; background: #007bff;">📋 Copiar Chave Pix</button>
+  </div>
+</div>
 
       <!-- Abas de Navegação -->
       <div class="nav-tabs">
@@ -433,6 +455,19 @@
   </div>
 
   <script>
+    document.addEventListener("DOMContentLoaded", () => {
+  const qrContainer = document.getElementById("qrcodeCanvas");
+  if (qrContainer) {
+    new QRCode(qrContainer, {
+      text: "62992980612", // Insira a sua chave pix ou código copia e cola aqui
+      width: 200,
+      height: 200,
+      colorDark : "#000000",
+      colorLight : "#ffffff",
+      correctLevel : QRCode.CorrectLevel.H
+    });
+  }
+});
     lucide.createIcons();
 
     // Carrega a imagem do QR Code
