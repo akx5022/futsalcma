@@ -540,7 +540,11 @@
 
     // Junta o estado atual num único objeto
     function coletarEstado() {
-      return { times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores, golsA, golsB, mensalistas };
+      return {
+        times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
+        golsA, golsB, mensalistas,
+        timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
+      };
     }
 
     // Aplica um estado recebido (da nuvem ou do armazenamento local) e redesenha a tela
@@ -556,6 +560,11 @@
       golsB = estado.golsB || 0;
       if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
 
+      // Cronômetro compartilhado
+      rodando = !!estado.timerRodando;
+      tempoFinalTimestamp = estado.timerFim || null;
+      tempoRestanteSeg = (typeof estado.timerRestante === 'number') ? estado.timerRestante : DURACAO_TOTAL_SEG;
+
       const temJogo = times.length > 0;
       document.getElementById('setup').style.display = temJogo ? 'none' : 'block';
       document.getElementById('timerArea').style.display = temJogo ? 'block' : 'none';
@@ -567,6 +576,7 @@
       atualizarListaPagantesUI();
       atualizarMensalistasUI();
       atualizarRelatorioUI();
+      sincronizarTimerLocal();
     }
 
     // Salva: grava local na hora e envia pra nuvem (com pequeno atraso)
@@ -843,7 +853,7 @@
 
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && rodando) {
-        atualizarTempoReal();
+        tickTimer();
       }
     });
 
@@ -906,28 +916,64 @@
       document.getElementById('fullscreenDisplay').style.color = cor;
     }
 
-    function atualizarTempoReal() {
-      if (!rodando) return;
-      const agora = Date.now();
-      const diffSeg = Math.round((tempoFinalTimestamp - agora) / 1000);
+    // ===== CRONÔMETRO SINCRONIZADO (mesmo tempo em todos os aparelhos) =====
+    // Quando rodando, o tempo é calculado a partir de um horário-alvo
+    // (tempoFinalTimestamp) que é compartilhado na nuvem. Assim cada aparelho
+    // mostra exatamente o mesmo tempo, mesmo entrando depois.
+    let ultimoAlarmeFim = null; // guarda o "fim" já alarmado, p/ tocar a sirene 1x por partida
 
-      if (diffSeg > 0) {
-        tempoRestanteSeg = diffSeg;
+    function atualizarBotoesTimer() {
+      const btn = document.getElementById('btnStartPause');
+      const btnFs = document.getElementById('btnFsPause');
+      if (rodando) {
+        if (btn) { btn.innerText = '⏸ Pausar'; btn.className = 'btn-timer btn-pause'; }
+        if (btnFs) { btnFs.innerText = '⏸ Pausar'; btnFs.className = 'btn-timer btn-pause'; }
+      } else {
+        if (btn) { btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play'; }
+        if (btnFs) { btnFs.innerText = '▶ Continuar'; btnFs.className = 'btn-timer btn-play'; }
+      }
+    }
+
+    function tickTimer() {
+      if (!rodando) return;
+      const restante = Math.round((tempoFinalTimestamp - Date.now()) / 1000);
+      if (restante > 0) {
+        tempoRestanteSeg = restante;
         atualizarDisplayTimer();
       } else {
         tempoRestanteSeg = 0;
         atualizarDisplayTimer();
-        finalizarTempo();
+        finalizarTempoLocal();
       }
     }
 
-    function finalizarTempo() {
+    function iniciarTickLocal() {
       clearInterval(timerInterval);
+      timerInterval = setInterval(tickTimer, 250);
+      tickTimer();
+    }
+
+    function finalizarTempoLocal() {
+      clearInterval(timerInterval); timerInterval = null;
       rodando = false;
-      fecharTelaCheia();
-      const btn = document.getElementById('btnStartPause');
-      btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play';
-      tocarAlarme();
+      atualizarBotoesTimer();
+      // Toca a sirene 1x por partida e apenas se o tempo ACABOU de expirar
+      // (evita que quem abre a página depois do tempo esgotado ouça a sirene atrasada).
+      if (ultimoAlarmeFim !== tempoFinalTimestamp && tempoFinalTimestamp && (Date.now() - tempoFinalTimestamp) < 12000) {
+        ultimoAlarmeFim = tempoFinalTimestamp;
+        tocarAlarme();
+      }
+    }
+
+    // Ajusta o cronômetro local ao estado recebido da nuvem (outro aparelho mexeu)
+    function sincronizarTimerLocal() {
+      if (rodando && tempoFinalTimestamp) {
+        iniciarTickLocal();
+      } else {
+        clearInterval(timerInterval); timerInterval = null;
+        atualizarDisplayTimer();
+      }
+      atualizarBotoesTimer();
     }
 
     function abrirTelaCheia() { document.getElementById('fullscreenTimer').style.display = 'flex'; }
@@ -939,9 +985,6 @@
 
       const audio = document.getElementById('audioSirene');
       if (audio) audio.load();
-
-      const btn = document.getElementById('btnStartPause');
-      const btnFs = document.getElementById('btnFsPause');
 
       if (!rodando) {
         if (times.length >= 2) {
@@ -956,25 +999,26 @@
         if (tempoRestanteSeg <= 0) tempoRestanteSeg = DURACAO_TOTAL_SEG;
         tempoFinalTimestamp = Date.now() + (tempoRestanteSeg * 1000);
         rodando = true;
-
-        btn.innerText = '⏸ Pausar'; btn.className = 'btn-timer btn-pause';
-        btnFs.innerText = '⏸ Pausar'; btnFs.className = 'btn-timer btn-pause';
-
-        timerInterval = setInterval(atualizarTempoReal, 1000);
+        iniciarTickLocal();
       } else {
-        clearInterval(timerInterval);
+        // Pausa: congela o tempo restante no momento
+        tempoRestanteSeg = Math.max(0, Math.round((tempoFinalTimestamp - Date.now()) / 1000));
         rodando = false;
-        btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play';
-        btnFs.innerText = '▶ Continuar'; btnFs.className = 'btn-timer btn-play';
+        clearInterval(timerInterval); timerInterval = null;
       }
+
+      atualizarBotoesTimer();
+      atualizarDisplayTimer();
+      salvarEstado(); // propaga o cronômetro para todos os aparelhos
     }
 
     function resetTimer() {
-      pararAlarme(); clearInterval(timerInterval); rodando = false;
+      pararAlarme(); clearInterval(timerInterval); timerInterval = null; rodando = false;
       tempoRestanteSeg = DURACAO_TOTAL_SEG;
-      const btn = document.getElementById('btnStartPause');
-      btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play';
+      tempoFinalTimestamp = null;
+      atualizarBotoesTimer();
       fecharTelaCheia(); atualizarDisplayTimer();
+      salvarEstado(); // propaga o "reiniciar" para todos os aparelhos
     }
 
     function gerarSorteio() {
