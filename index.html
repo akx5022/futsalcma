@@ -344,7 +344,8 @@
       <div class="nav-tabs">
         <button class="tab-btn active" id="tabPagantesBtn" onclick="mudarAba('pagantes')">💰 Pagantes</button>
         <button class="tab-btn" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">📊 Relatório</button>
-        <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Chave Pix</button>
+        <button class="tab-btn" id="tabHistoricoBtn" onclick="mudarAba('historico')">📅 Histórico</button>
+        <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Pix</button>
       </div>
 
       <!-- Conteúdo da Aba Pagantes -->
@@ -382,6 +383,32 @@
           <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">👥 Ranking Individual de Jogadores:</h3>
           <ul class="ranking-list" id="rankingJogadoresList"></ul>
         </div>
+
+        <div class="stat-box" style="margin-top: 18px;">
+          <div class="stat-title">⚽ Time que Mais Fez Gols</div>
+          <div class="stat-value" id="topGolsTime">Sem gols ainda</div>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">⚽ Gols por Time:</h3>
+          <ul class="ranking-list" id="rankingGolsList"></ul>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">😞 Derrotas por Time:</h3>
+          <ul class="ranking-list" id="rankingDerrotasTimesList"></ul>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">😞 Jogadores que Mais Perderam:</h3>
+          <ul class="ranking-list" id="rankingDerrotasJogadoresList"></ul>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba Histórico -->
+      <div id="abaHistoricoView" style="display:none;">
+        <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Peladas anteriores (cada pelada é arquivada aqui quando você inicia uma nova):</p>
+        <div id="listaHistorico"><p style="color:#777;">Abra esta aba para carregar...</p></div>
       </div>
 
       <!-- Conteúdo da Aba Pix -->
@@ -511,6 +538,11 @@
     // Mensalistas: entram automaticamente como "pago". Editável na aba Pagantes.
     let mensalistas = ['BREW', 'CARLOS', 'DUDU'];
 
+    // Estatísticas acumuladas na pelada
+    let golsTime = {};            // gols totais por id de time
+    let derrotasTimes = {};       // derrotas por id de time
+    let derrotasJogadores = {};   // derrotas por jogador
+
     const DURACAO_TOTAL_SEG = 7 * 60;
     let tempoRestanteSeg = DURACAO_TOTAL_SEG;
     let tempoFinalTimestamp = null;
@@ -543,6 +575,7 @@
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
         golsA, golsB, mensalistas,
+        golsTime, derrotasTimes, derrotasJogadores,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
     }
@@ -559,6 +592,9 @@
       golsA = estado.golsA || 0;
       golsB = estado.golsB || 0;
       if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
+      golsTime = estado.golsTime || {};
+      derrotasTimes = estado.derrotasTimes || {};
+      derrotasJogadores = estado.derrotasJogadores || {};
 
       // Cronômetro compartilhado
       rodando = !!estado.timerRodando;
@@ -654,13 +690,86 @@
     }
 
     // Começa uma pelada nova (apaga os dados de TODOS)
-    function novaPelada() {
-      if (!confirm('Iniciar uma NOVA pelada? Isso apaga os times, pagamentos e vitórias atuais para TODOS.')) return;
-      times = []; contadorTimes = 1; pagamentos = {}; vitoriasTimes = {}; vitoriasJogadores = {};
+    async function novaPelada() {
+      if (!confirm('Iniciar uma NOVA pelada? A pelada atual será salva no 📅 Histórico e os dados serão zerados para TODOS.')) return;
+      await arquivarPelada(); // guarda um resumo no histórico antes de zerar
+      times = []; contadorTimes = 1; pagamentos = {};
+      vitoriasTimes = {}; vitoriasJogadores = {};
+      golsTime = {}; derrotasTimes = {}; derrotasJogadores = {};
       golsA = 0; golsB = 0; // mantém a lista de mensalistas configurada
       const input = document.getElementById('inputNomes'); if (input) input.value = '';
       aplicarEstado(coletarEstado());
       salvarEstado();
+    }
+
+    // Arquiva um resumo da pelada atual no histórico (Supabase)
+    async function arquivarPelada() {
+      const houveJogo = Object.values(vitoriasTimes).some(v => v > 0) ||
+                        Object.values(golsTime).some(g => g > 0);
+      if (!sb || !houveJogo) return;
+
+      const resumo = {
+        vitoriasTimes, vitoriasJogadores, golsTime, derrotasTimes, derrotasJogadores,
+        totalGols: Object.values(golsTime).reduce((s, g) => s + g, 0),
+        qtdJogadores: Object.keys(vitoriasJogadores).length
+      };
+      try {
+        await sb.from('pelada_historico').insert({ resumo });
+      } catch (e) {
+        console.warn('Falha ao arquivar pelada:', e);
+      }
+    }
+
+    // Busca e mostra o histórico de peladas anteriores
+    async function carregarHistorico() {
+      const c = document.getElementById('listaHistorico');
+      if (!c) return;
+      if (!sb) { c.innerHTML = '<p style="color:#dc3545;">Sem conexão com a nuvem.</p>'; return; }
+      c.innerHTML = '<p style="color:#777;">Carregando...</p>';
+
+      try {
+        const { data, error } = await sb.from('pelada_historico')
+          .select('id, data, resumo')
+          .order('data', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          c.innerHTML = '<p style="color:#777;">Nenhuma pelada arquivada ainda. O histórico é criado quando você inicia uma nova pelada.</p>';
+          return;
+        }
+        c.innerHTML = data.map(renderItemHistorico).join('');
+      } catch (e) {
+        console.warn(e);
+        c.innerHTML = '<p style="color:#dc3545;">Erro ao carregar o histórico.</p>';
+      }
+    }
+
+    function melhorChave(mapa) {
+      const chaves = Object.keys(mapa || {}).sort((a, b) => mapa[b] - mapa[a]);
+      if (!chaves.length || !(mapa[chaves[0]] > 0)) return null;
+      return { chave: chaves[0], valor: mapa[chaves[0]] };
+    }
+
+    function renderItemHistorico(item) {
+      const r = item.resumo || {};
+      const dataFmt = item.data ? item.data.split('-').reverse().join('/') : '';
+      const jc = melhorChave(r.vitoriasJogadores);
+      const tc = melhorChave(r.vitoriasTimes);
+      const tg = melhorChave(r.golsTime);
+      const campeaoJog = jc ? `${jc.chave} (${jc.valor} vit.)` : '—';
+      const campeaoTime = tc ? `Time ${tc.chave} (${tc.valor} vit.)` : '—';
+      const artilheiroTime = tg ? `Time ${tg.chave} (${tg.valor} gols)` : '—';
+      const total = (r.totalGols != null) ? r.totalGols : '—';
+      return `
+        <div class="stat-box" style="margin-bottom:12px;">
+          <div style="font-weight:bold; color:#28a745; margin-bottom:6px;">📅 ${dataFmt}</div>
+          <div class="ranking-item"><span>🥇 Jogador campeão</span><strong>${campeaoJog}</strong></div>
+          <div class="ranking-item"><span>🏆 Time campeão</span><strong>${campeaoTime}</strong></div>
+          <div class="ranking-item"><span>⚽ Time com mais gols</span><strong>${artilheiroTime}</strong></div>
+          <div class="ranking-item"><span>⚽ Total de gols</span><strong>${total}</strong></div>
+        </div>
+      `;
     }
 
     // ----- SISTEMA DE MENU & ABAS -----
@@ -678,18 +787,22 @@
     function mudarAba(aba) {
       const btnPagantes = document.getElementById('tabPagantesBtn');
       const btnRelatorio = document.getElementById('tabRelatorioBtn');
+      const btnHistorico = document.getElementById('tabHistoricoBtn');
       const btnPix = document.getElementById('tabPixBtn');
 
       const viewPagantes = document.getElementById('abaPagantesView');
       const viewRelatorio = document.getElementById('abaRelatorioView');
+      const viewHistorico = document.getElementById('abaHistoricoView');
       const viewPix = document.getElementById('abaPixView');
 
       btnPagantes.classList.remove('active');
       btnRelatorio.classList.remove('active');
+      btnHistorico.classList.remove('active');
       btnPix.classList.remove('active');
 
       viewPagantes.style.display = 'none';
       viewRelatorio.style.display = 'none';
+      viewHistorico.style.display = 'none';
       viewPix.style.display = 'none';
 
       if (aba === 'pagantes') {
@@ -701,6 +814,10 @@
         btnRelatorio.classList.add('active');
         viewRelatorio.style.display = 'block';
         atualizarRelatorioUI();
+      } else if (aba === 'historico') {
+        btnHistorico.classList.add('active');
+        viewHistorico.style.display = 'block';
+        carregarHistorico();
       } else if (aba === 'pix') {
         btnPix.classList.add('active');
         viewPix.style.display = 'block';
@@ -847,6 +964,35 @@
         `;
       });
       listJogadoresElement.innerHTML = htmlJogadores || '<li style="color:#777;">Sem dados</li>';
+
+      // ----- Gols por time -----
+      const topGolsTimeEl = document.getElementById('topGolsTime');
+      const listGolsEl = document.getElementById('rankingGolsList');
+      let timesGolsOrd = Object.keys(golsTime).sort((a, b) => golsTime[b] - golsTime[a]);
+      if (timesGolsOrd.length > 0 && golsTime[timesGolsOrd[0]] > 0) {
+        const id = timesGolsOrd[0];
+        topGolsTimeEl.innerText = `Time ${id} (${golsTime[id]} ${golsTime[id] === 1 ? 'gol' : 'gols'})`;
+      } else {
+        topGolsTimeEl.innerText = 'Sem gols ainda';
+      }
+      listGolsEl.innerHTML = timesGolsOrd.filter(id => golsTime[id] > 0).map(id =>
+        `<li class="ranking-item"><span>Time ${id}</span><strong>${golsTime[id]} gols</strong></li>`
+      ).join('') || '<li style="color:#777;">Sem dados</li>';
+
+      // ----- Derrotas por time -----
+      const listDerTimesEl = document.getElementById('rankingDerrotasTimesList');
+      let derTimesOrd = Object.keys(derrotasTimes).sort((a, b) => derrotasTimes[b] - derrotasTimes[a]);
+      listDerTimesEl.innerHTML = derTimesOrd.filter(id => derrotasTimes[id] > 0).map(id =>
+        `<li class="ranking-item"><span>Time ${id}</span><strong>${derrotasTimes[id]} derrotas</strong></li>`
+      ).join('') || '<li style="color:#777;">Sem dados</li>';
+
+      // ----- Jogadores que mais perderam -----
+      const listDerJogEl = document.getElementById('rankingDerrotasJogadoresList');
+      let derJogOrd = Object.keys(derrotasJogadores).sort((a, b) => derrotasJogadores[b] - derrotasJogadores[a]);
+      listDerJogEl.innerHTML = derJogOrd.filter(n => derrotasJogadores[n] > 0).map((n, i) => {
+        let medalha = i === 0 ? '😭 ' : (i === 1 ? '😢 ' : '');
+        return `<li class="ranking-item"><span>${medalha}${n}</span><strong>${derrotasJogadores[n]} derrotas</strong></li>`;
+      }).join('') || '<li style="color:#777;">Sem dados</li>';
     }
 
     // --------------------------------
@@ -1034,6 +1180,9 @@
 
       vitoriasTimes = {};
       vitoriasJogadores = {};
+      golsTime = {};
+      derrotasTimes = {};
+      derrotasJogadores = {};
 
       nomes.forEach((nome) => {
         registrarPagante(nome);
@@ -1287,6 +1436,17 @@
         vitoriasJogadores[jogador] = (vitoriasJogadores[jogador] || 0) + 1;
       });
 
+      // Gols totais por time (placar final desta partida)
+      const idA = times[0].id, idB = times[1].id;
+      golsTime[idA] = (golsTime[idA] || 0) + golsA;
+      golsTime[idB] = (golsTime[idB] || 0) + golsB;
+
+      // Derrotas do time perdedor e de cada jogador dele
+      derrotasTimes[perdedor.id] = (derrotasTimes[perdedor.id] || 0) + 1;
+      perdedor.jogadores.forEach(jogador => {
+        derrotasJogadores[jogador] = (derrotasJogadores[jogador] || 0) + 1;
+      });
+
       vencedor.partidasSeguidas = (vencedor.partidasSeguidas || 0) + 1;
       perdedor.partidasSeguidas = 0;
 
@@ -1312,6 +1472,11 @@
 
     function empate() {
       if (times.length < 2) return;
+
+      // Gols totais por time (placar final desta partida)
+      const idA = times[0].id, idB = times[1].id;
+      golsTime[idA] = (golsTime[idA] || 0) + golsA;
+      golsTime[idB] = (golsTime[idB] || 0) + golsB;
 
       // Empate: os dois times saem do campo e vão para o fim da fila.
       // Como saíram do campo, a sequência de vitórias seguidas zera para ambos.
