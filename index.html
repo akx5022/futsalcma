@@ -1,28 +1,30 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Futebol de Segunda da Sal CMA</title>
-  
+
   <!-- Carregando os Ícones da biblioteca Lucide -->
   <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Supabase: sincronização dos dados na nuvem (todos veem a mesma pelada) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
     }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      background: #121212; 
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #121212;
       color: #e0e0e0;
       margin: 0;
       padding: 12px;
       padding-bottom: 30px;
     }
-    
+
     /* Header e Menu */
     .header-container {
       display: flex;
@@ -40,9 +42,9 @@
       color: #28a745;
       padding: 5px;
     }
-    h1 { 
-      color: #ffffff; 
-      text-align: center; 
+    h1 {
+      color: #ffffff;
+      text-align: center;
       font-size: 1.3rem;
       margin: 0;
     }
@@ -61,12 +63,12 @@
       color: #ffffff;
       text-align: center;
     }
-    .card { 
-      background: #1e1e1e; 
-      padding: 16px; 
-      border-radius: 12px; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4); 
-      margin-bottom: 16px; 
+    .card {
+      background: #1e1e1e;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      margin-bottom: 16px;
       border: 1px solid #2a2a2a;
     }
 
@@ -94,7 +96,7 @@
     }
     .modal-header h2 { margin: 0; color: #fff; }
     .close-btn { background: transparent; color: #ff4444; width: auto; font-size: 1.8rem; padding: 0; line-height: 1; border: none; cursor: pointer; }
-    
+
     .nav-tabs {
       display: flex;
       gap: 6px;
@@ -193,12 +195,12 @@
     }
     .pagante-item:last-child { border-bottom: none; }
     .pagante-actions { display: flex; gap: 8px; }
-    
-    .btn-emoji { 
-      background: #2a2a2a; border: 1px solid #444; border-radius: 8px; 
+
+    .btn-emoji {
+      background: #2a2a2a; border: 1px solid #444; border-radius: 8px;
       padding: 6px 12px; font-size: 1.1rem; width: auto; cursor: pointer; transition: 0.2s;
     }
-    .status-pago { color: #28a745; font-weight: bold; } 
+    .status-pago { color: #28a745; font-weight: bold; }
     .status-devendo { color: #dc3545; opacity: 0.9; }
 
     .btn-emoji.active-pago { background: #1a3d24; border-color: #28a745; transform: scale(1.1); }
@@ -221,7 +223,7 @@
     }
     @media (orientation: landscape) { .fullscreen-display { font-size: 45vh; } }
     .fullscreen-controls { display: flex; gap: 10px; width: 100%; max-width: 450px; justify-content: center; }
-    
+
     /* Estilos Gerais */
     .timer-card { background: #1a1a1a; border: 1px solid #333; text-align: center; padding: 14px; }
     .timer-display { font-size: 3rem; font-weight: bold; color: #28a745; font-family: monospace; letter-spacing: 2px; margin: 8px 0; }
@@ -233,26 +235,26 @@
     .btn-fullscreen { background: #17a2b8; }
     .btn-stop-alarm { background: #dc3545; width: 100%; margin-top: 10px; display: none; color: white; font-weight: bold; padding: 12px; border-radius: 8px; border: none;}
 
-    textarea, input[type="text"] { 
+    textarea, input[type="text"] {
       width: 100%; padding: 12px; background: #2a2a2a; color: #ffffff;
       border: 1px solid #444; border-radius: 8px; font-size: 16px;
     }
     textarea { height: 100px; margin-bottom: 12px; resize: vertical; }
-    button { 
-      background: #28a745; color: white; border: none; padding: 14px; 
-      border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold; 
+    button {
+      background: #28a745; color: white; border: none; padding: 14px;
+      border-radius: 8px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: bold;
     }
     button:active { opacity: 0.85; transform: scale(0.98); }
     button.btn-danger { background: #dc3545; width: auto; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; }
     button.btn-blue { background: #007bff; padding: 12px; font-size: 0.9rem; }
     button.btn-warning { background: #ff9800; color: #121212; padding: 12px; font-size: 0.9rem; }
-    
+
     .game-grid { display: flex; flex-direction: column; gap: 12px; }
     .team-box { padding: 12px; border-radius: 8px; position: relative; }
-    
-    .match-badge { 
-      position: absolute; top: 10px; right: 10px; 
-      background: rgba(255,255,255,0.15); color: #fff; 
+
+    .match-badge {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(255,255,255,0.15); color: #fff;
       font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: bold;
     }
     .match-badge-alert {
@@ -271,7 +273,7 @@
     .team-theme-4 h3 { color: #e57373 !important; margin: 0 0 8px 0; font-size: 1rem; }
     .team-theme-default { background: #2a2a2a !important; border: 1px solid #555555 !important; }
     .team-theme-default h3 { color: #e0e0e0 !important; margin: 0 0 8px 0; font-size: 1rem; }
-    
+
     .player-list { list-style: none; padding: 0; margin: 0; }
     .player-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem; }
     .player-item:last-child { border-bottom: none; }
@@ -279,44 +281,31 @@
     .add-player-box { display: flex; gap: 8px; margin-top: 8px; }
     .add-player-box input { flex: 1; }
     .add-player-box button { width: auto; padding: 0 16px; white-space: nowrap; }
-    
+
     .alert-banner {
       background: #ff9800; color: #121212; padding: 8px 12px;
       border-radius: 8px; font-weight: bold; text-align: center;
       font-size: 0.85rem; margin-bottom: 10px; display: none;
     }
+
+    /* Indicador de sincronização com a nuvem */
+    .sync-badge {
+      text-align: center; font-size: 0.75rem; color: #777; margin-bottom: 12px;
+    }
+    .sync-badge .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6c757d; margin-right: 5px; vertical-align: middle; }
+    .sync-badge.ok .dot { background: #28a745; }
+    .sync-badge.erro .dot { background: #dc3545; }
   </style>
 </head>
 <body>
 
   <!-- Modal do Menu (Pagantes, Relatório e Pix) -->
-  <!-- Conteúdo da Aba Pix -->
-<div id="abaPixView" style="display:none;">
-  <div class="pix-container">
-    <h3 style="margin: 0 0 5px 0; font-size: 1.1rem; color: #fff;">Pagamento da Pelada</h3>
-    <p style="font-size: 0.85rem; color: #aaa; margin: 0 0 10px 0;">Escaneie o QR Code abaixo para pagar via Pix:</p>
-    
-    <!-- Div onde o QR Code será gerado automaticamente -->
-    <div id="qrcodeCanvas" style="display: flex; justify-content: center; margin: 15px 0;"></div>
-
-    <div class="pix-info-box">
-      <div class="pix-info-row">
-        <div class="pix-label">Beneficiário</div>
-        <div class="pix-val">Felipe Viana Feu</div>
+  <div class="modal-overlay" id="menuModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>📋 Painel do Gerenciador</h2>
+        <button class="close-btn" onclick="fecharMenu()">✖</button>
       </div>
-      <div class="pix-info-row">
-        <div class="pix-label">Instituição</div>
-        <div class="pix-val">Mercado Pago</div>
-      </div>
-      <div class="pix-info-row">
-        <div class="pix-label">Chave Pix (Telefone)</div>
-        <div class="pix-val">62992980612</div>
-      </div>
-    </div>
-
-    <button onclick="copiarChavePix()" style="margin-top: 15px; background: #007bff;">📋 Copiar Chave Pix</button>
-  </div>
-</div>
 
       <!-- Abas de Navegação -->
       <div class="nav-tabs">
@@ -358,9 +347,9 @@
         <div class="pix-container">
           <h3 style="margin: 0 0 5px 0; font-size: 1.1rem; color: #fff;">Pagamento da Pelada</h3>
           <p style="font-size: 0.85rem; color: #aaa; margin: 0 0 10px 0;">Escaneie o QR Code abaixo para pagar via Pix:</p>
-          
-          <!-- Imagem real do QR Code fornecido -->
-          <img class="pix-qr-img" id="imgQrCodePix" src="qrcode.png" alt="QR Code Pix Mercado Pago" />
+
+          <!-- Imagem real do QR Code (arquivo qrcode.jpeg do projeto) -->
+          <img class="pix-qr-img" id="imgQrCodePix" src="qrcode.jpeg" alt="QR Code Pix Mercado Pago" />
 
           <div class="pix-info-box">
             <div class="pix-info-row">
@@ -401,6 +390,9 @@
     </div>
     <div class="sub-title">Gerenciador de Pelada & Sorteio</div>
 
+    <!-- Indicador de sincronização com a nuvem -->
+    <div class="sync-badge" id="syncBadge"><span class="dot"></span><span id="syncTexto">Conectando à nuvem...</span></div>
+
     <!-- Áudio: Sirene -->
     <audio id="audioSirene" loop preload="auto">
       <source src="https://www.myinstants.com/media/sounds/sirene-1.mp3" type="audio/mpeg">
@@ -433,6 +425,7 @@
         <input type="text" id="novoJogadorNome" placeholder="Nome do jogador..." />
         <button onclick="adicionarNovoJogador()">Adicionar</button>
       </div>
+      <button class="btn-danger" style="width:100%; margin-top:12px; padding:12px; font-size:0.9rem;" onclick="novaPelada()">🆕 Nova Pelada (apagar tudo)</button>
     </div>
 
     <!-- Banner de Alerta para 3º Jogo -->
@@ -455,33 +448,12 @@
   </div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", () => {
-  const qrContainer = document.getElementById("qrcodeCanvas");
-  if (qrContainer) {
-    new QRCode(qrContainer, {
-      text: "62992980612", // Insira a sua chave pix ou código copia e cola aqui
-      width: 200,
-      height: 200,
-      colorDark : "#000000",
-      colorLight : "#ffffff",
-      correctLevel : QRCode.CorrectLevel.H
-    });
-  }
-});
     lucide.createIcons();
-
-    // Carrega a imagem do QR Code
-    document.addEventListener("DOMContentLoaded", () => {
-      const img = document.getElementById('imgQrCodePix');
-      if (img) {
-        img.src = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAYGBgYHBgcICAcKCwX/2wBDAP/9k="; // O navegador renderizará dinamicamente a imagem base64 completa carregada no projeto.
-      }
-    });
 
     let times = [];
     let contadorTimes = 1;
     let pagamentos = {};
-    
+
     let vitoriasTimes = {};
     let vitoriasJogadores = {};
 
@@ -491,6 +463,136 @@
     let timerInterval = null;
     let rodando = false;
     let alarmeTimeout = null;
+
+    // ===================================================================
+    // ===== NUVEM (Supabase): dados compartilhados entre todos =========
+    // ===================================================================
+    const SUPABASE_URL = 'https://szzutoiqvidchukkdaxu.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_Bxf06-PWIJ5cFNw1rI8G1w_0EV7iAjh';
+    const PELADA_ID = 1;
+    const STORAGE_KEY = 'futsalcma_estado';
+
+    let sb = null;              // cliente Supabase
+    let sincronizando = false;  // true enquanto aplicamos algo vindo da nuvem (evita loop)
+    let salvarTimeout = null;   // debounce para não gravar a cada tecla
+
+    function atualizarSyncBadge(estado, texto) {
+      const badge = document.getElementById('syncBadge');
+      const txt = document.getElementById('syncTexto');
+      if (!badge || !txt) return;
+      badge.className = 'sync-badge' + (estado ? ' ' + estado : '');
+      txt.innerText = texto;
+    }
+
+    // Junta o estado atual num único objeto
+    function coletarEstado() {
+      return { times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores };
+    }
+
+    // Aplica um estado recebido (da nuvem ou do armazenamento local) e redesenha a tela
+    function aplicarEstado(estado) {
+      if (!estado || typeof estado !== 'object') return;
+
+      times = Array.isArray(estado.times) ? estado.times : [];
+      contadorTimes = estado.contadorTimes || (times.length + 1);
+      pagamentos = estado.pagamentos || {};
+      vitoriasTimes = estado.vitoriasTimes || {};
+      vitoriasJogadores = estado.vitoriasJogadores || {};
+
+      const temJogo = times.length > 0;
+      document.getElementById('setup').style.display = temJogo ? 'none' : 'block';
+      document.getElementById('timerArea').style.display = temJogo ? 'block' : 'none';
+      document.getElementById('addPlayerArea').style.display = temJogo ? 'block' : 'none';
+      document.getElementById('gameArea').style.display = temJogo ? 'block' : 'none';
+      document.getElementById('queueArea').style.display = temJogo ? 'block' : 'none';
+
+      if (temJogo) atualizarTela();
+      atualizarListaPagantesUI();
+      atualizarRelatorioUI();
+    }
+
+    // Salva: grava local na hora e envia pra nuvem (com pequeno atraso)
+    function salvarEstado() {
+      if (sincronizando) return; // não re-salvar o que acabou de chegar da nuvem
+
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(coletarEstado())); } catch (e) {}
+
+      clearTimeout(salvarTimeout);
+      salvarTimeout = setTimeout(enviarParaNuvem, 400);
+    }
+
+    async function enviarParaNuvem() {
+      if (!sb) return;
+      try {
+        const { error } = await sb.from('pelada')
+          .update({ estado: coletarEstado() })
+          .eq('id', PELADA_ID);
+        if (error) {
+          console.warn('Erro ao salvar na nuvem:', error);
+          atualizarSyncBadge('erro', 'Sem conexão — salvo só neste aparelho');
+        } else {
+          atualizarSyncBadge('ok', 'Dados sincronizados na nuvem ✓');
+        }
+      } catch (e) {
+        console.warn(e);
+        atualizarSyncBadge('erro', 'Sem conexão — salvo só neste aparelho');
+      }
+    }
+
+    // Inicia a nuvem: carrega o estado atual e escuta mudanças ao vivo
+    async function iniciarNuvem() {
+      // 1) Mostra rápido o que estiver salvo localmente (enquanto a nuvem responde)
+      try {
+        const local = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (local && Array.isArray(local.times) && local.times.length) {
+          sincronizando = true; aplicarEstado(local); sincronizando = false;
+        }
+      } catch (e) {}
+
+      if (!window.supabase) {
+        atualizarSyncBadge('erro', 'Nuvem indisponível — usando só este aparelho');
+        return;
+      }
+
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      // 2) Carrega o estado atual da nuvem
+      try {
+        const { data, error } = await sb.from('pelada')
+          .select('estado').eq('id', PELADA_ID).single();
+        if (!error && data && data.estado) {
+          sincronizando = true; aplicarEstado(data.estado); sincronizando = false;
+          atualizarSyncBadge('ok', 'Dados sincronizados na nuvem ✓');
+        } else {
+          atualizarSyncBadge('ok', 'Conectado à nuvem ✓');
+        }
+      } catch (e) {
+        console.warn(e);
+        atualizarSyncBadge('erro', 'Sem conexão — usando só este aparelho');
+      }
+
+      // 3) Escuta mudanças em tempo real (outro aparelho alterou -> atualiza aqui)
+      try {
+        sb.channel('pelada-mudancas')
+          .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'pelada', filter: 'id=eq.' + PELADA_ID },
+            (payload) => {
+              if (payload && payload.new && payload.new.estado) {
+                sincronizando = true; aplicarEstado(payload.new.estado); sincronizando = false;
+              }
+            })
+          .subscribe();
+      } catch (e) { console.warn(e); }
+    }
+
+    // Começa uma pelada nova (apaga os dados de TODOS)
+    function novaPelada() {
+      if (!confirm('Iniciar uma NOVA pelada? Isso apaga os times, pagamentos e vitórias atuais para TODOS.')) return;
+      times = []; contadorTimes = 1; pagamentos = {}; vitoriasTimes = {}; vitoriasJogadores = {};
+      const input = document.getElementById('inputNomes'); if (input) input.value = '';
+      aplicarEstado(coletarEstado());
+      salvarEstado();
+    }
 
     // ----- SISTEMA DE MENU & ABAS -----
     function abrirMenu() {
@@ -556,12 +658,13 @@
     function alternarPagamento(nome, statusClick) {
       pagamentos[nome] = statusClick;
       atualizarListaPagantesUI();
+      salvarEstado();
     }
 
     function atualizarListaPagantesUI() {
       const container = document.getElementById('listaPagantes');
       const nomesCadastrados = Object.keys(pagamentos).sort();
-      
+
       if (nomesCadastrados.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#888;">Nenhum jogador cadastrado ainda.</p>';
         return;
@@ -591,7 +694,7 @@
     function atualizarRelatorioUI() {
       const topTimeElement = document.getElementById('topTime');
       const listTimesElement = document.getElementById('rankingTimesList');
-      
+
       let timesOrdenados = Object.keys(vitoriasTimes).sort((a, b) => vitoriasTimes[b] - vitoriasTimes[a]);
 
       if (timesOrdenados.length > 0 && vitoriasTimes[timesOrdenados[0]] > 0) {
@@ -757,7 +860,7 @@
 
         btn.innerText = '⏸ Pausar'; btn.className = 'btn-timer btn-pause';
         btnFs.innerText = '⏸ Pausar'; btnFs.className = 'btn-timer btn-pause';
-        
+
         timerInterval = setInterval(atualizarTempoReal, 1000);
       } else {
         clearInterval(timerInterval);
@@ -778,7 +881,7 @@
     function gerarSorteio() {
       const texto = document.getElementById('inputNomes').value.trim();
       if (!texto) return alert("Digite os nomes dos jogadores!");
-      
+
       let nomes = texto.split('\n').map(n => n.trim()).filter(n => n.length > 0);
       if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
 
@@ -793,15 +896,15 @@
         vitoriasJogadores[nome] = 0;
 
         timeAtual.push(nome);
-        if (timeAtual.length === 4) { 
-          times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 }); 
+        if (timeAtual.length === 4) {
+          times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 });
           vitoriasTimes[contadorTimes] = 0;
           contadorTimes++;
-          timeAtual = []; 
+          timeAtual = [];
         }
       });
-      if (timeAtual.length > 0) { 
-        times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 }); 
+      if (timeAtual.length > 0) {
+        times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 });
         vitoriasTimes[contadorTimes] = 0;
         contadorTimes++;
       }
@@ -813,6 +916,7 @@
       document.getElementById('queueArea').style.display = 'block';
 
       resetTimer(); atualizarTela();
+      salvarEstado();
     }
 
     function adicionarNovoJogador() {
@@ -829,15 +933,16 @@
         contadorTimes++;
       } else {
         let ultimoTime = times[times.length - 1];
-        if (ultimoTime.jogadores.length < 4) { 
-          ultimoTime.jogadores.push(nome); 
-        } else { 
-          times.push({ id: contadorTimes, jogadores: [nome], partidasSeguidas: 0 }); 
+        if (ultimoTime.jogadores.length < 4) {
+          ultimoTime.jogadores.push(nome);
+        } else {
+          times.push({ id: contadorTimes, jogadores: [nome], partidasSeguidas: 0 });
           vitoriasTimes[contadorTimes] = 0;
           contadorTimes++;
         }
       }
       input.value = ''; atualizarTela();
+      salvarEstado();
     }
 
     function getTeamClass(id) {
@@ -871,7 +976,7 @@
 
       if (times.length >= 2) {
         const timeA = times[0]; const timeB = times[1];
-        
+
         if (timeA.partidasSeguidas === 2 || timeB.partidasSeguidas === 2) {
           temTimeNo3Jogo = true;
         }
@@ -940,6 +1045,7 @@
 
         if (times[indexTime].jogadores.length === 0) { times.splice(indexTime, 1); }
         atualizarTela();
+        salvarEstado();
       }
     }
 
@@ -988,8 +1094,9 @@
         times.push(teamPerdedor);
       }
 
-      resetTimer(); 
+      resetTimer();
       atualizarTela();
+      salvarEstado();
     }
 
     function empate() {
@@ -1021,9 +1128,13 @@
         times.push(tB);
       }
 
-      resetTimer(); 
+      resetTimer();
       atualizarTela();
+      salvarEstado();
     }
+
+    // Inicia a sincronização com a nuvem assim que a página abre
+    document.addEventListener('DOMContentLoaded', iniciarNuvem);
   </script>
 </body>
 </html>
