@@ -295,6 +295,39 @@
     .sync-badge .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6c757d; margin-right: 5px; vertical-align: middle; }
     .sync-badge.ok .dot { background: #28a745; }
     .sync-badge.erro .dot { background: #dc3545; }
+
+    /* Placar de gols */
+    .gol-controle {
+      display: flex; align-items: center; gap: 8px;
+      margin: 8px 0 10px; flex-wrap: wrap;
+    }
+    .btn-gol {
+      background: #28a745; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 14px; font-size: 0.95rem; font-weight: bold; width: auto; cursor: pointer;
+    }
+    .btn-gol-menos {
+      background: #444; color: #fff; border: none; border-radius: 8px;
+      padding: 10px 12px; font-size: 0.95rem; width: auto; cursor: pointer;
+    }
+    .gol-num {
+      font-weight: bold; color: #fff; font-size: 1.05rem;
+      min-width: 62px; text-align: center;
+    }
+    .placar-geral {
+      text-align: center; font-family: monospace; font-weight: bold;
+      font-size: 1.4rem; color: #fff; margin: 4px 0 12px;
+    }
+
+    /* Mensalistas (chips) */
+    .chip-mensalista {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #262626; border: 1px solid #3a3a3a; border-radius: 16px;
+      padding: 4px 10px; margin: 0 6px 6px 0; font-size: 0.85rem; color: #fff;
+    }
+    .chip-mensalista button {
+      background: transparent; border: none; color: #ff6b6b; width: auto;
+      padding: 0; font-size: 1.1rem; line-height: 1; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -316,6 +349,15 @@
 
       <!-- Conteúdo da Aba Pagantes -->
       <div id="abaPagantesView">
+        <!-- Mensalistas: entram automaticamente como "pago" -->
+        <div style="margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #333;">
+          <h3 style="font-size:0.9rem; color:#aaa; margin:0 0 8px;">⭐ Mensalistas (já entram como pago)</h3>
+          <div class="add-player-box">
+            <input type="text" id="inputMensalista" placeholder="Nome do mensalista..." />
+            <button onclick="adicionarMensalista()">Add</button>
+          </div>
+          <div id="listaMensalistas" style="margin-top:10px;"></div>
+        </div>
         <div id="listaPagantes"></div>
       </div>
 
@@ -433,6 +475,11 @@
       ⚠️ ATENÇÃO: Partida decisiva! O time com 2 vitórias sai nesta partida.
     </div>
 
+    <!-- Banner de Lotação (20 atletas / 5 times) -->
+    <div class="alert-banner" id="bannerLotacao" style="background:#17a2b8; color:#fff;">
+      🚨 Limite de 20 atletas atingido (5 times).
+    </div>
+
     <!-- Partida Atual -->
     <div class="card" style="display:none;" id="gameArea">
       <h2>⚔️ Partida em Andamento</h2>
@@ -456,6 +503,13 @@
 
     let vitoriasTimes = {};
     let vitoriasJogadores = {};
+
+    // Placar da partida atual (Time em jogo A = times[0], B = times[1])
+    let golsA = 0;
+    let golsB = 0;
+
+    // Mensalistas: entram automaticamente como "pago". Editável na aba Pagantes.
+    let mensalistas = ['BREW', 'CARLOS', 'DUDU'];
 
     const DURACAO_TOTAL_SEG = 7 * 60;
     let tempoRestanteSeg = DURACAO_TOTAL_SEG;
@@ -486,7 +540,7 @@
 
     // Junta o estado atual num único objeto
     function coletarEstado() {
-      return { times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores };
+      return { times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores, golsA, golsB, mensalistas };
     }
 
     // Aplica um estado recebido (da nuvem ou do armazenamento local) e redesenha a tela
@@ -498,6 +552,9 @@
       pagamentos = estado.pagamentos || {};
       vitoriasTimes = estado.vitoriasTimes || {};
       vitoriasJogadores = estado.vitoriasJogadores || {};
+      golsA = estado.golsA || 0;
+      golsB = estado.golsB || 0;
+      if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
 
       const temJogo = times.length > 0;
       document.getElementById('setup').style.display = temJogo ? 'none' : 'block';
@@ -508,6 +565,7 @@
 
       if (temJogo) atualizarTela();
       atualizarListaPagantesUI();
+      atualizarMensalistasUI();
       atualizarRelatorioUI();
     }
 
@@ -589,6 +647,7 @@
     function novaPelada() {
       if (!confirm('Iniciar uma NOVA pelada? Isso apaga os times, pagamentos e vitórias atuais para TODOS.')) return;
       times = []; contadorTimes = 1; pagamentos = {}; vitoriasTimes = {}; vitoriasJogadores = {};
+      golsA = 0; golsB = 0; // mantém a lista de mensalistas configurada
       const input = document.getElementById('inputNomes'); if (input) input.value = '';
       aplicarEstado(coletarEstado());
       salvarEstado();
@@ -597,6 +656,7 @@
     // ----- SISTEMA DE MENU & ABAS -----
     function abrirMenu() {
       atualizarListaPagantesUI();
+      atualizarMensalistasUI();
       atualizarRelatorioUI();
       document.getElementById('menuModal').style.display = 'block';
     }
@@ -625,6 +685,8 @@
       if (aba === 'pagantes') {
         btnPagantes.classList.add('active');
         viewPagantes.style.display = 'block';
+        atualizarListaPagantesUI();
+        atualizarMensalistasUI();
       } else if (aba === 'relatorio') {
         btnRelatorio.classList.add('active');
         viewRelatorio.style.display = 'block';
@@ -646,13 +708,50 @@
     // ----- SISTEMA DE PAGANTES -----
     function registrarPagante(nome) {
       if (!pagamentos[nome]) {
-        const nomeUpper = nome.toUpperCase();
-        if (nomeUpper.includes('BREW') || nomeUpper.includes('CARLOS') || nomeUpper.includes('DUDU')) {
-          pagamentos[nome] = 'pago';
-        } else {
-          pagamentos[nome] = 'devendo';
-        }
+        pagamentos[nome] = ehMensalista(nome) ? 'pago' : 'devendo';
       }
+    }
+
+    function ehMensalista(nome) {
+      const nomeUpper = nome.toUpperCase();
+      return mensalistas.some(m => m && nomeUpper.includes(m.toUpperCase()));
+    }
+
+    // ----- MENSALISTAS (configurável) -----
+    function atualizarMensalistasUI() {
+      const c = document.getElementById('listaMensalistas');
+      if (!c) return;
+      if (!mensalistas.length) {
+        c.innerHTML = '<p style="color:#777; font-size:0.85rem; margin:0;">Nenhum mensalista cadastrado.</p>';
+        return;
+      }
+      c.innerHTML = mensalistas.map(m => {
+        const seguro = String(m).replace(/'/g, "\\'");
+        return `<span class="chip-mensalista">${m}<button onclick="removerMensalista('${seguro}')">×</button></span>`;
+      }).join('');
+    }
+
+    function adicionarMensalista() {
+      const inp = document.getElementById('inputMensalista');
+      const nome = inp.value.trim();
+      if (!nome) return;
+      if (!mensalistas.some(m => m.toUpperCase() === nome.toUpperCase())) {
+        mensalistas.push(nome);
+        // Marca como pago quem já está cadastrado e bate com o nome
+        Object.keys(pagamentos).forEach(n => {
+          if (n.toUpperCase().includes(nome.toUpperCase())) pagamentos[n] = 'pago';
+        });
+      }
+      inp.value = '';
+      atualizarMensalistasUI();
+      atualizarListaPagantesUI();
+      salvarEstado();
+    }
+
+    function removerMensalista(nome) {
+      mensalistas = mensalistas.filter(m => m !== nome);
+      atualizarMensalistasUI();
+      salvarEstado();
     }
 
     function alternarPagamento(nome, statusClick) {
@@ -887,6 +986,7 @@
 
       nomes.sort(() => Math.random() - 0.5);
       times = []; contadorTimes = 1; let timeAtual = [];
+      golsA = 0; golsB = 0;
 
       vitoriasTimes = {};
       vitoriasJogadores = {};
@@ -943,6 +1043,10 @@
       }
       input.value = ''; atualizarTela();
       salvarEstado();
+
+      const tot = totalAtletas();
+      if (tot === 20) alert('✅ 20 atletas cadastrados — 5 times completos!');
+      else if (tot > 20) alert('🚨 Atenção: já passou de 20 atletas (limite da pelada).');
     }
 
     function getTeamClass(id) {
@@ -966,6 +1070,60 @@
       return `<span class="match-badge">${qtd}/3 jogos</span>`;
     }
 
+    // ----- PLACAR DE GOLS (7 min OU 2 gols) -----
+    const GOLS_PARA_VENCER = 2;
+
+    function marcarGol(qualTime) {
+      if (times.length < 2) return;
+      if (qualTime === 0) golsA++; else golsB++;
+      atualizarTela();
+
+      // 2 gols encerra a partida automaticamente
+      if (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER) {
+        const vencedorIndex = golsA >= GOLS_PARA_VENCER ? 0 : 1;
+        const placar = `${Math.max(golsA, golsB)} x ${Math.min(golsA, golsB)}`;
+        const idVencedor = times[vencedorIndex].id;
+        setTimeout(() => {
+          alert(`⚽ Fim de jogo! Time ${idVencedor} venceu por ${placar}.`);
+          fimDeJogo(vencedorIndex);
+        }, 60);
+      } else {
+        salvarEstado();
+      }
+    }
+
+    function tirarGol(qualTime) {
+      if (qualTime === 0 && golsA > 0) golsA--;
+      else if (qualTime === 1 && golsB > 0) golsB--;
+      atualizarTela();
+      salvarEstado();
+    }
+
+    function renderControleGols(qualTime, gols) {
+      return `<div class="gol-controle">
+        <button class="btn-gol" onclick="marcarGol(${qualTime})">⚽ +Gol</button>
+        <span class="gol-num">${gols} gol${gols === 1 ? '' : 's'}</span>
+        <button class="btn-gol-menos" onclick="tirarGol(${qualTime})">−</button>
+      </div>`;
+    }
+
+    // ----- LOTAÇÃO (20 atletas / 5 times) -----
+    function totalAtletas() {
+      return times.reduce((soma, t) => soma + t.jogadores.length, 0);
+    }
+
+    function atualizarAvisoLotacao() {
+      const b = document.getElementById('bannerLotacao');
+      if (!b) return;
+      const total = totalAtletas();
+      if (total >= 20) {
+        b.style.display = 'block';
+        b.innerText = `🚨 ${total} atletas / ${times.length} times — limite de 20 atingido.`;
+      } else {
+        b.style.display = 'none';
+      }
+    }
+
     function atualizarTela() {
       recomporTimes();
       const areaJogo = document.getElementById('timesJogando');
@@ -982,16 +1140,22 @@
         }
 
         areaJogo.innerHTML = `
+          <div class="placar-geral">Time ${timeA.id} &nbsp;${golsA} x ${golsB}&nbsp; Time ${timeB.id}</div>
           <div class="team-box ${getTeamClass(timeA.id)}">
             ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
-            <h3>Time ${timeA.id} (${timeA.jogadores.length}/4)</h3> ${renderListaJogadores(0)}
+            <h3>Time ${timeA.id} (${timeA.jogadores.length}/4)</h3>
+            ${renderControleGols(0, golsA)}
+            ${renderListaJogadores(0)}
           </div>
           <div class="team-box ${getTeamClass(timeB.id)}">
             ${renderBadgePartidas(timeB.partidasSeguidas || 0)}
-            <h3>Time ${timeB.id} (${timeB.jogadores.length}/4)</h3> ${renderListaJogadores(1)}
+            <h3>Time ${timeB.id} (${timeB.jogadores.length}/4)</h3>
+            ${renderControleGols(1, golsB)}
+            ${renderListaJogadores(1)}
           </div>
         `;
         botoesJogo.innerHTML = `
+          <div style="grid-column:1/-1; text-align:center; font-size:0.8rem; color:#888; margin-bottom:4px;">Encerrar no tempo (7 min) — quem fez mais gols:</div>
           <button style="${getBtnColorStyle(timeA.id)}" onclick="fimDeJogo(0)">Time ${timeA.id}</button>
           <button class="btn-warning" onclick="empate()">Empate 🤝</button>
           <button style="${getBtnColorStyle(timeB.id)}" onclick="fimDeJogo(1)">Time ${timeB.id}</button>
@@ -1022,6 +1186,8 @@
           `;
         }
       } else { areaFila.innerHTML = '<p style="color:#777; font-size:0.9rem; text-align:center;">Sem times na fila.</p>'; }
+
+      atualizarAvisoLotacao();
     }
 
     function renderListaJogadores(indexTime) {
@@ -1094,6 +1260,7 @@
         times.push(teamPerdedor);
       }
 
+      golsA = 0; golsB = 0; // zera o placar para a próxima partida
       resetTimer();
       atualizarTela();
       salvarEstado();
@@ -1102,32 +1269,16 @@
     function empate() {
       if (times.length < 2) return;
 
-      let timeA = times[0];
-      let timeB = times[1];
-
-      timeA.partidasSeguidas = (timeA.partidasSeguidas || 0) + 1;
-      timeB.partidasSeguidas = (timeB.partidasSeguidas || 0) + 1;
-
-      let timeA_Atingiu3 = timeA.partidasSeguidas >= 3;
-      let timeB_Atingiu3 = timeB.partidasSeguidas >= 3;
-
-      if (timeA_Atingiu3) timeA.partidasSeguidas = 0;
-      if (timeB_Atingiu3) timeB.partidasSeguidas = 0;
-
+      // Empate: os dois times saem do campo e vão para o fim da fila.
+      // Como saíram do campo, a sequência de vitórias seguidas zera para ambos.
       let tA = times.shift();
       let tB = times.shift();
+      tA.partidasSeguidas = 0;
+      tB.partidasSeguidas = 0;
+      times.push(tA);
+      times.push(tB);
 
-      if (timeA_Atingiu3 && !timeB_Atingiu3) {
-        times.push(tA);
-        times.push(tB);
-      } else if (timeB_Atingiu3 && !timeA_Atingiu3) {
-        times.push(tB);
-        times.push(tA);
-      } else {
-        times.push(tA);
-        times.push(tB);
-      }
-
+      golsA = 0; golsB = 0; // zera o placar para a próxima partida
       resetTimer();
       atualizarTela();
       salvarEstado();
