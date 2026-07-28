@@ -462,6 +462,9 @@
     <!-- Indicador de sincronização com a nuvem -->
     <div class="sync-badge" id="syncBadge"><span class="dot"></span><span id="syncTexto">Conectando à nuvem...</span></div>
 
+    <!-- Botão Desfazer (aparece quando há algo para desfazer) -->
+    <button id="btnDesfazer" class="btn-blue" style="width:100%; margin-bottom:12px; display:none;" onclick="desfazer()">↩️ Desfazer última ação</button>
+
     <!-- Áudio: Sirene -->
     <audio id="audioSirene" loop preload="auto">
       <source src="https://www.myinstants.com/media/sounds/sirene-1.mp3" type="audio/mpeg">
@@ -615,6 +618,53 @@
       sincronizarTimerLocal();
     }
 
+    // ===== DESFAZER (Ctrl+Z / botão) =====
+    // Guarda retratos do estado do JOGO (sem o cronômetro) antes de cada ação,
+    // para poder voltar quando alguém clica errado (ex: empate no lugar de vitória).
+    let pilhaDesfazer = [];
+    const MAX_DESFAZER = 25;
+
+    function snapshotEstado() {
+      const s = coletarEstado();
+      delete s.timerRodando; delete s.timerFim; delete s.timerRestante;
+      pilhaDesfazer.push(JSON.stringify(s));
+      if (pilhaDesfazer.length > MAX_DESFAZER) pilhaDesfazer.shift();
+      atualizarBotaoDesfazer();
+    }
+
+    function desfazer() {
+      if (!pilhaDesfazer.length) return;
+      const anterior = JSON.parse(pilhaDesfazer.pop());
+      // Mantém o cronômetro atual (o desfazer é só das jogadas)
+      anterior.timerRodando = rodando;
+      anterior.timerFim = tempoFinalTimestamp;
+      anterior.timerRestante = tempoRestanteSeg;
+      aplicarEstado(anterior);
+      atualizarBotaoDesfazer();
+      salvarEstado(); // propaga o desfazer para todos os aparelhos
+    }
+
+    function atualizarBotaoDesfazer() {
+      const b = document.getElementById('btnDesfazer');
+      if (!b) return;
+      if (pilhaDesfazer.length > 0) {
+        b.style.display = 'block';
+        b.innerText = `↩️ Desfazer última ação (${pilhaDesfazer.length})`;
+      } else {
+        b.style.display = 'none';
+      }
+    }
+
+    // Atalho Ctrl+Z (ou Cmd+Z) no computador — ignora quando digitando em campos
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        const tag = (e.target && e.target.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea') return;
+        e.preventDefault();
+        desfazer();
+      }
+    });
+
     // Salva: grava local na hora e envia pra nuvem (com pequeno atraso)
     function salvarEstado() {
       if (sincronizando) return; // não re-salvar o que acabou de chegar da nuvem
@@ -692,6 +742,7 @@
     // Começa uma pelada nova (apaga os dados de TODOS)
     async function novaPelada() {
       if (!confirm('Iniciar uma NOVA pelada? A pelada atual será salva no 📅 Histórico e os dados serão zerados para TODOS.')) return;
+      snapshotEstado(); // permite desfazer um "Nova Pelada" acidental
       await arquivarPelada(); // guarda um resumo no histórico antes de zerar
       times = []; contadorTimes = 1; pagamentos = {};
       vitoriasTimes = {}; vitoriasJogadores = {};
@@ -862,6 +913,7 @@
       const inp = document.getElementById('inputMensalista');
       const nome = inp.value.trim();
       if (!nome) return;
+      snapshotEstado();
       if (!mensalistas.some(m => m.toUpperCase() === nome.toUpperCase())) {
         mensalistas.push(nome);
         // Marca como pago quem já está cadastrado e bate com o nome
@@ -876,12 +928,14 @@
     }
 
     function removerMensalista(nome) {
+      snapshotEstado();
       mensalistas = mensalistas.filter(m => m !== nome);
       atualizarMensalistasUI();
       salvarEstado();
     }
 
     function alternarPagamento(nome, statusClick) {
+      snapshotEstado();
       pagamentos[nome] = statusClick;
       atualizarListaPagantesUI();
       salvarEstado();
@@ -1174,6 +1228,7 @@
       let nomes = texto.split('\n').map(n => n.trim()).filter(n => n.length > 0);
       if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
 
+      snapshotEstado();
       nomes.sort(() => Math.random() - 0.5);
       times = []; contadorTimes = 1; let timeAtual = [];
       golsA = 0; golsB = 0;
@@ -1217,6 +1272,7 @@
       const nome = input.value.trim();
       if (!nome) return alert("Digite o nome do jogador!");
 
+      snapshotEstado();
       registrarPagante(nome);
       if (vitoriasJogadores[nome] === undefined) vitoriasJogadores[nome] = 0;
 
@@ -1268,6 +1324,7 @@
 
     function marcarGol(qualTime) {
       if (times.length < 2) return;
+      snapshotEstado();
       if (qualTime === 0) golsA++; else golsB++;
       atualizarTela();
 
@@ -1286,6 +1343,7 @@
     }
 
     function tirarGol(qualTime) {
+      if ((qualTime === 0 && golsA > 0) || (qualTime === 1 && golsB > 0)) snapshotEstado();
       if (qualTime === 0 && golsA > 0) golsA--;
       else if (qualTime === 1 && golsB > 0) golsB--;
       atualizarTela();
@@ -1399,6 +1457,7 @@
     function removerJogador(indexTime, indexJogador) {
       const nome = times[indexTime].jogadores[indexJogador];
       if (confirm(`${nome} foi embora?`)) {
+        snapshotEstado();
         times[indexTime].jogadores.splice(indexJogador, 1);
         delete pagamentos[nome];
 
@@ -1426,6 +1485,7 @@
 
     function fimDeJogo(indexVencedor) {
       if (times.length < 2) return;
+      snapshotEstado();
 
       let indexPerdedor = indexVencedor === 0 ? 1 : 0;
       let vencedor = times[indexVencedor];
@@ -1472,6 +1532,7 @@
 
     function empate() {
       if (times.length < 2) return;
+      snapshotEstado();
 
       // Gols totais por time (placar final desta partida)
       const idA = times[0].id, idB = times[1].id;
