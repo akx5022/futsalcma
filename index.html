@@ -810,8 +810,8 @@
       const tc = melhorChave(r.vitoriasTimes);
       const tg = melhorChave(r.golsTime);
       const campeaoJog = jc ? `${jc.chave} (${jc.valor} vit.)` : '—';
-      const campeaoTime = tc ? `Time ${tc.chave} (${tc.valor} vit.)` : '—';
-      const artilheiroTime = tg ? `Time ${tg.chave} (${tg.valor} gols)` : '—';
+      const campeaoTime = tc ? `${nomeTime(tc.chave)} (${tc.valor} vit.)` : '—';
+      const artilheiroTime = tg ? `${nomeTime(tg.chave)} (${tg.valor} gols)` : '—';
       const total = (r.totalGols != null) ? r.totalGols : '—';
       return `
         <div class="stat-box" style="margin-bottom:12px;">
@@ -1018,7 +1018,7 @@
 
       if (timesOrdenados.length > 0 && vitoriasTimes[timesOrdenados[0]] > 0) {
         let topId = timesOrdenados[0];
-        topTimeElement.innerText = `Time ${topId} (${vitoriasTimes[topId]} ${vitoriasTimes[topId] === 1 ? 'vitória' : 'vitórias'})`;
+        topTimeElement.innerText = `${nomeTime(topId)} (${vitoriasTimes[topId]} ${vitoriasTimes[topId] === 1 ? 'vitória' : 'vitórias'})`;
       } else {
         topTimeElement.innerText = "Nenhuma partida jogada";
       }
@@ -1027,7 +1027,7 @@
       timesOrdenados.forEach(id => {
         htmlTimes += `
           <li class="ranking-item">
-            <span>Time ${id}</span>
+            <span>${nomeTime(id)}</span>
             <strong>${vitoriasTimes[id]} vitórias</strong>
           </li>
         `;
@@ -1064,19 +1064,19 @@
       let timesGolsOrd = Object.keys(golsTime).sort((a, b) => golsTime[b] - golsTime[a]);
       if (timesGolsOrd.length > 0 && golsTime[timesGolsOrd[0]] > 0) {
         const id = timesGolsOrd[0];
-        topGolsTimeEl.innerText = `Time ${id} (${golsTime[id]} ${golsTime[id] === 1 ? 'gol' : 'gols'})`;
+        topGolsTimeEl.innerText = `${nomeTime(id)} (${golsTime[id]} ${golsTime[id] === 1 ? 'gol' : 'gols'})`;
       } else {
         topGolsTimeEl.innerText = 'Sem gols ainda';
       }
       listGolsEl.innerHTML = timesGolsOrd.filter(id => golsTime[id] > 0).map(id =>
-        `<li class="ranking-item"><span>Time ${id}</span><strong>${golsTime[id]} gols</strong></li>`
+        `<li class="ranking-item"><span>${nomeTime(id)}</span><strong>${golsTime[id]} gols</strong></li>`
       ).join('') || '<li style="color:#777;">Sem dados</li>';
 
       // ----- Derrotas por time -----
       const listDerTimesEl = document.getElementById('rankingDerrotasTimesList');
       let derTimesOrd = Object.keys(derrotasTimes).sort((a, b) => derrotasTimes[b] - derrotasTimes[a]);
       listDerTimesEl.innerHTML = derTimesOrd.filter(id => derrotasTimes[id] > 0).map(id =>
-        `<li class="ranking-item"><span>Time ${id}</span><strong>${derrotasTimes[id]} derrotas</strong></li>`
+        `<li class="ranking-item"><span>${nomeTime(id)}</span><strong>${derrotasTimes[id]} derrotas</strong></li>`
       ).join('') || '<li style="color:#777;">Sem dados</li>';
 
       // ----- Jogadores que mais perderam -----
@@ -1229,9 +1229,9 @@
         if (times.length >= 2) {
           let t1 = times[0]; let t2 = times[1];
           if ((t1.partidasSeguidas || 0) === 2) {
-            alert(`⚠️ ATENÇÃO: Time ${t1.id} vai para a 3ª partida seguida e sairá após esta rodada!`);
+            alert(`⚠️ ATENÇÃO: ${nomeTime(t1.id)} vai para a 3ª partida seguida e sairá após esta rodada!`);
           } else if ((t2.partidasSeguidas || 0) === 2) {
-            alert(`⚠️ ATENÇÃO: Time ${t2.id} vai para a 3ª partida seguida e sairá após esta rodada!`);
+            alert(`⚠️ ATENÇÃO: ${nomeTime(t2.id)} vai para a 3ª partida seguida e sairá após esta rodada!`);
           }
         }
 
@@ -1358,6 +1358,12 @@
       return `<span class="match-badge">${qtd}/3 jogos</span>`;
     }
 
+    // ----- NOMES DOS TIMES POR COR (mesma cor do tema visual) -----
+    const NOMES_CORES = { 1: 'Azul', 2: 'Laranja', 3: 'Verde', 4: 'Vermelho', 5: 'Cinza' };
+    function nomeTime(id) {
+      return NOMES_CORES[id] ? `Time ${NOMES_CORES[id]}` : `Time ${id}`;
+    }
+
     // ----- PLACAR DE GOLS (7 min OU 2 gols) -----
     const GOLS_PARA_VENCER = 2;
 
@@ -1373,7 +1379,7 @@
         const placar = `${Math.max(golsA, golsB)} x ${Math.min(golsA, golsB)}`;
         const idVencedor = times[vencedorIndex].id;
         setTimeout(() => {
-          alert(`⚽ Fim de jogo! Time ${idVencedor} venceu por ${placar}.`);
+          alert(`⚽ Fim de jogo! ${nomeTime(idVencedor)} venceu por ${placar}.`);
           fimDeJogo(vencedorIndex);
         }, 60);
       } else {
@@ -1430,32 +1436,32 @@
         }
 
         areaJogo.innerHTML = `
-          <div class="placar-geral">Time ${timeA.id} &nbsp;${golsA} x ${golsB}&nbsp; Time ${timeB.id}</div>
+          <div class="placar-geral">${nomeTime(timeA.id)} &nbsp;${golsA} x ${golsB}&nbsp; ${nomeTime(timeB.id)}</div>
           <div class="team-box ${getTeamClass(timeA.id)}">
             ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
-            <h3>Time ${timeA.id} (${timeA.jogadores.length}/4)</h3>
+            <h3>${nomeTime(timeA.id)} (${timeA.jogadores.length}/4)</h3>
             ${renderControleGols(0, golsA)}
             ${renderListaJogadores(0)}
           </div>
           <div class="team-box ${getTeamClass(timeB.id)}">
             ${renderBadgePartidas(timeB.partidasSeguidas || 0)}
-            <h3>Time ${timeB.id} (${timeB.jogadores.length}/4)</h3>
+            <h3>${nomeTime(timeB.id)} (${timeB.jogadores.length}/4)</h3>
             ${renderControleGols(1, golsB)}
             ${renderListaJogadores(1)}
           </div>
         `;
         botoesJogo.innerHTML = `
           <div style="grid-column:1/-1; text-align:center; font-size:0.8rem; color:#888; margin-bottom:4px;">Encerrar no tempo (7 min) — quem fez mais gols:</div>
-          <button style="${getBtnColorStyle(timeA.id)}" onclick="fimDeJogo(0)">Time ${timeA.id}</button>
+          <button style="${getBtnColorStyle(timeA.id)}" onclick="fimDeJogo(0)">${nomeTime(timeA.id)}</button>
           <button class="btn-warning" onclick="empate()">Empate 🤝</button>
-          <button style="${getBtnColorStyle(timeB.id)}" onclick="fimDeJogo(1)">Time ${timeB.id}</button>
+          <button style="${getBtnColorStyle(timeB.id)}" onclick="fimDeJogo(1)">${nomeTime(timeB.id)}</button>
         `;
       } else if (times.length === 1) {
         const timeA = times[0];
         areaJogo.innerHTML = `
           <div class="team-box ${getTeamClass(timeA.id)}">
             ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
-            <h3>Time ${timeA.id} (${timeA.jogadores.length}/4)</h3> ${renderListaJogadores(0)}
+            <h3>${nomeTime(timeA.id)} (${timeA.jogadores.length}/4)</h3> ${renderListaJogadores(0)}
           </div>
           <p style="text-align:center; font-size:0.9rem; color:#aaa;">Aguardando mais jogadores...</p>
         `;
@@ -1470,7 +1476,7 @@
           const timeFila = times[i];
           areaFila.innerHTML += `
             <div class="team-box ${getTeamClass(timeFila.id)}" style="margin-bottom:10px;">
-              <strong style="font-size:0.9rem;">${i - 1}º da Fila - Time ${timeFila.id} (${timeFila.jogadores.length}/4)</strong>
+              <strong style="font-size:0.9rem;">${i - 1}º da Fila - ${nomeTime(timeFila.id)} (${timeFila.jogadores.length}/4)</strong>
               ${renderListaJogadores(i)}
             </div>
           `;
@@ -1551,7 +1557,7 @@
       perdedor.partidasSeguidas = 0;
 
       if (vencedor.partidasSeguidas >= 3) {
-        alert(`🏆 Time ${vencedor.id} completou 3 vitórias seguidas! Entram 2 times novos da fila.`);
+        alert(`🏆 ${nomeTime(vencedor.id)} completou 3 vitórias seguidas! Entram 2 times novos da fila.`);
         vencedor.partidasSeguidas = 0;
 
         let tA = times.shift();
