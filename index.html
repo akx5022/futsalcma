@@ -359,6 +359,7 @@
           </div>
           <div id="listaMensalistas" style="margin-top:10px;"></div>
         </div>
+        <button id="btnCobrar" style="width:100%; margin-bottom:14px; background:#25D366; color:#fff;" onclick="cobrarDevedores()">📲 Cobrar quem falta pagar (WhatsApp)</button>
         <div id="listaPagantes"></div>
       </div>
 
@@ -941,9 +942,45 @@
       salvarEstado();
     }
 
+    function removerPagante(nome) {
+      if (!confirm(`Remover ${nome} da lista de pagantes?`)) return;
+      snapshotEstado();
+      delete pagamentos[nome];
+      atualizarListaPagantesUI();
+      salvarEstado();
+    }
+
+    // Monta uma mensagem e abre o WhatsApp para cobrar quem ainda não pagou
+    function cobrarDevedores() {
+      const devedores = Object.keys(pagamentos).filter(n => pagamentos[n] === 'devendo').sort();
+      if (devedores.length === 0) {
+        alert('🎉 Todo mundo já pagou! Ninguém está devendo.');
+        return;
+      }
+
+      let msg = '⚽ *Futebol de Segunda da Sal CMA*\n\n';
+      msg += `💰 *Ainda falta pagar a pelada* (${devedores.length}):\n`;
+      devedores.forEach(n => { msg += `• ${n}\n`; });
+      msg += '\n📲 *Pix (Telefone):* 62992980612';
+      msg += '\nFelipe Viana Feu — Mercado Pago';
+      msg += '\n\nAssim que pagar, manda o comprovante aqui! 🙏';
+
+      const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+      window.open(url, '_blank');
+    }
+
     function atualizarListaPagantesUI() {
       const container = document.getElementById('listaPagantes');
       const nomesCadastrados = Object.keys(pagamentos).sort();
+
+      // Atualiza o texto do botão de cobrança com a quantidade de devedores
+      const btnCobrar = document.getElementById('btnCobrar');
+      if (btnCobrar) {
+        const qtdDev = Object.values(pagamentos).filter(s => s === 'devendo').length;
+        btnCobrar.innerText = qtdDev > 0
+          ? `📲 Cobrar quem falta pagar (${qtdDev})`
+          : '📲 Cobrar quem falta pagar';
+      }
 
       if (nomesCadastrados.length === 0) {
         container.innerHTML = '<p style="text-align:center; color:#888;">Nenhum jogador cadastrado ainda.</p>';
@@ -956,13 +993,15 @@
         let classeTexto = status === 'pago' ? 'status-pago' : 'status-devendo';
         let classeBtnDevendo = status === 'devendo' ? 'active-devendo' : '';
         let classeBtnPago = status === 'pago' ? 'active-pago' : '';
+        const seguro = String(nome).replace(/'/g, "\\'");
 
         html += `
           <div class="pagante-item">
             <span class="${classeTexto}" style="flex:1;">${nome}</span>
             <div class="pagante-actions">
-              <button class="btn-emoji ${classeBtnDevendo}" onclick="alternarPagamento('${nome}', 'devendo')">❌</button>
-              <button class="btn-emoji ${classeBtnPago}" onclick="alternarPagamento('${nome}', 'pago')">✅</button>
+              <button class="btn-emoji ${classeBtnDevendo}" onclick="alternarPagamento('${seguro}', 'devendo')">❌</button>
+              <button class="btn-emoji ${classeBtnPago}" onclick="alternarPagamento('${seguro}', 'pago')">✅</button>
+              <button class="btn-emoji" style="opacity:0.55;" title="Remover da lista" onclick="removerPagante('${seguro}')">🗑️</button>
             </div>
           </div>
         `;
@@ -1459,7 +1498,8 @@
       if (confirm(`${nome} foi embora?`)) {
         snapshotEstado();
         times[indexTime].jogadores.splice(indexJogador, 1);
-        delete pagamentos[nome];
+        // Mantém o jogador na lista de Pagantes mesmo saindo do jogo/fila
+        // (ele continua devendo/pago até você resolver ou iniciar nova pelada)
 
         if (times[indexTime].jogadores.length === 0) { times.splice(indexTime, 1); }
         atualizarTela();
