@@ -380,6 +380,12 @@
       padding: 0; cursor: pointer; box-shadow: none; transition: 0.12s;
     }
     .cor-swatch.cor-swatch-ativo { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); transform: scale(1.12); }
+
+    /* Seletor de modo do jogo (7 min · 2 gols  /  10 min corrido) */
+    .modo-jogo { display: flex; gap: 6px; background: var(--bg-2); border: 1px solid var(--border); padding: 5px; border-radius: 12px; margin-top: 12px; }
+    .modo-btn { flex: 1; padding: 9px 6px; background: transparent; color: var(--muted); border: none; border-radius: 9px; font-weight: 700; font-size: 0.8rem; cursor: pointer; box-shadow: none; }
+    .modo-btn.ativo { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; }
+    .modo-legenda { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -532,6 +538,8 @@
         <button class="btn-timer btn-reset" onclick="resetTimer()">🔄 Reiniciar</button>
         <button class="btn-timer btn-fullscreen" onclick="abrirTelaCheia()">📺 Tela Cheia</button>
       </div>
+      <div id="seletorModo" class="modo-jogo"></div>
+      <div id="modoLegenda" class="modo-legenda"></div>
       <button class="btn-stop-alarm" id="btnStopAlarm" onclick="pararAlarme()">🔕 PARAR SIRENE</button>
     </div>
 
@@ -602,8 +610,11 @@
     // Cores escolhidas pelo admin (id do time -> chave de cor). Vazio = cor padrão pela ordem.
     let coresTimes = {};
 
-    const DURACAO_TOTAL_SEG = 7 * 60;
-    let tempoRestanteSeg = DURACAO_TOTAL_SEG;
+    // Modo do jogo: '7e2' = 7 min OU 2 gols | '10min' = 10 min corridos (2 gols não encerram)
+    let modoJogo = '7e2';
+    function duracaoJogoSeg() { return modoJogo === '10min' ? 600 : 420; }
+
+    let tempoRestanteSeg = duracaoJogoSeg();
     let tempoFinalTimestamp = null;
     let timerInterval = null;
     let rodando = false;
@@ -634,7 +645,7 @@
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
         golsA, golsB, mensalistas,
-        golsTime, derrotasTimes, derrotasJogadores, coresTimes,
+        golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
     }
@@ -655,11 +666,12 @@
       derrotasTimes = estado.derrotasTimes || {};
       derrotasJogadores = estado.derrotasJogadores || {};
       coresTimes = estado.coresTimes || {};
+      modoJogo = estado.modoJogo === '10min' ? '10min' : '7e2';
 
       // Cronômetro compartilhado
       rodando = !!estado.timerRodando;
       tempoFinalTimestamp = estado.timerFim || null;
-      tempoRestanteSeg = (typeof estado.timerRestante === 'number') ? estado.timerRestante : DURACAO_TOTAL_SEG;
+      tempoRestanteSeg = (typeof estado.timerRestante === 'number') ? estado.timerRestante : duracaoJogoSeg();
 
       const temJogo = times.length > 0;
       document.getElementById('setup').style.display = temJogo ? 'none' : 'block';
@@ -1291,7 +1303,7 @@
           }
         }
 
-        if (tempoRestanteSeg <= 0) tempoRestanteSeg = DURACAO_TOTAL_SEG;
+        if (tempoRestanteSeg <= 0) tempoRestanteSeg = duracaoJogoSeg();
         tempoFinalTimestamp = Date.now() + (tempoRestanteSeg * 1000);
         rodando = true;
         iniciarTickLocal();
@@ -1309,11 +1321,37 @@
 
     function resetTimer() {
       pararAlarme(); clearInterval(timerInterval); timerInterval = null; rodando = false;
-      tempoRestanteSeg = DURACAO_TOTAL_SEG;
+      tempoRestanteSeg = duracaoJogoSeg();
       tempoFinalTimestamp = null;
       atualizarBotoesTimer();
       fecharTelaCheia(); atualizarDisplayTimer();
       salvarEstado(); // propaga o "reiniciar" para todos os aparelhos
+    }
+
+    // Admin troca o modo do jogo a qualquer momento (reseta o relógio para a nova duração)
+    function definirModoJogo(modo) {
+      if (modo !== '7e2' && modo !== '10min') return;
+      if (modo === modoJogo) return;
+      snapshotEstado();
+      modoJogo = modo;
+      resetTimer();     // ajusta o relógio à nova duração (parado) e propaga para todos
+      atualizarTela();  // atualiza o seletor e as legendas
+    }
+
+    // Desenha o seletor de modo e a legenda (reflete o modo atual)
+    function atualizarSeletorModo() {
+      const sel = document.getElementById('seletorModo');
+      if (sel) {
+        sel.innerHTML =
+          `<button class="modo-btn ${modoJogo === '7e2' ? 'ativo' : ''}" onclick="definirModoJogo('7e2')">7 min · 2 gols</button>` +
+          `<button class="modo-btn ${modoJogo === '10min' ? 'ativo' : ''}" onclick="definirModoJogo('10min')">10 min corrido</button>`;
+      }
+      const leg = document.getElementById('modoLegenda');
+      if (leg) {
+        leg.innerText = modoJogo === '10min'
+          ? '10 min corridos — 2 gols não encerram (gols contam no relatório)'
+          : '7 minutos ou 2 gols encerram a partida';
+      }
     }
 
     function gerarSorteio() {
@@ -1334,6 +1372,9 @@
       derrotasTimes = {};
       derrotasJogadores = {};
       coresTimes = {};
+
+      // Padrão automático: até 12 jogadores = 10 min corridos; acima = 7 min + 2 gols
+      modoJogo = (nomes.length <= 12) ? '10min' : '7e2';
 
       nomes.forEach((nome) => {
         registrarPagante(nome);
@@ -1463,8 +1504,9 @@
       if (qualTime === 0) golsA++; else golsB++;
       atualizarTela();
 
-      // 2 gols encerra a partida automaticamente
-      if (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER) {
+      // 2 gols encerra a partida automaticamente — SÓ no Modo A (7 min + 2 gols).
+      // No Modo B (10 min corridos), os gols só contam para o relatório e não encerram.
+      if (modoJogo === '7e2' && (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER)) {
         const vencedorIndex = golsA >= GOLS_PARA_VENCER ? 0 : 1;
         const placar = `${Math.max(golsA, golsB)} x ${Math.min(golsA, golsB)}`;
         const idVencedor = times[vencedorIndex].id;
@@ -1543,7 +1585,7 @@
           </div>
         `;
         botoesJogo.innerHTML = `
-          <div style="grid-column:1/-1; text-align:center; font-size:0.8rem; color:#888; margin-bottom:4px;">Encerrar no tempo (7 min) — quem fez mais gols:</div>
+          <div style="grid-column:1/-1; text-align:center; font-size:0.8rem; color:#888; margin-bottom:4px;">Encerrar no tempo (${modoJogo === '10min' ? '10 min' : '7 min'}) — quem fez mais gols:</div>
           <button style="${getBtnColorStyle(timeA.id)}" onclick="fimDeJogo(0)">${nomeTime(timeA.id)}</button>
           <button class="btn-warning" onclick="empate()">Empate 🤝</button>
           <button style="${getBtnColorStyle(timeB.id)}" onclick="fimDeJogo(1)">${nomeTime(timeB.id)}</button>
@@ -1579,6 +1621,7 @@
       } else { areaFila.innerHTML = '<p style="color:#777; font-size:0.9rem; text-align:center;">Sem times na fila.</p>'; }
 
       atualizarAvisoLotacao();
+      atualizarSeletorModo();
     }
 
     function renderListaJogadores(indexTime) {
