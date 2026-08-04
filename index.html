@@ -134,6 +134,7 @@
 
     .nav-tabs {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
       margin-bottom: 16px;
       background: var(--bg-2);
@@ -142,7 +143,8 @@
       border-radius: 14px;
     }
     .tab-btn {
-      flex: 1;
+      flex: 1 1 28%;
+      min-width: 88px;
       padding: 9px 4px;
       background: transparent;
       color: var(--muted);
@@ -386,6 +388,14 @@
     .modo-btn { flex: 1; padding: 9px 6px; background: transparent; color: var(--muted); border: none; border-radius: 9px; font-weight: 700; font-size: 0.8rem; cursor: pointer; box-shadow: none; }
     .modo-btn.ativo { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; }
     .modo-legenda { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
+
+    /* Tabela de cobrança (jogador × últimas peladas) */
+    .cobranca-tabela { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .cobranca-tabela th { color: var(--muted); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .cobranca-tabela th:first-child { text-align: left; }
+    .cob-nome { padding: 8px; color: #fff; white-space: nowrap; border-bottom: 1px solid var(--border); }
+    .cob-cel { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+    .cob-cel .btn-emoji { padding: 4px 9px; font-size: 0.95rem; }
   </style>
 </head>
 <body>
@@ -403,6 +413,7 @@
         <button class="tab-btn active" id="tabPagantesBtn" onclick="mudarAba('pagantes')">💰 Pagantes</button>
         <button class="tab-btn" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">📊 Relatório</button>
         <button class="tab-btn" id="tabHistoricoBtn" onclick="mudarAba('historico')">📅 Histórico</button>
+        <button class="tab-btn" id="tabCobrancaBtn" onclick="mudarAba('cobranca')">🧾 Cobrança</button>
         <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Pix</button>
       </div>
 
@@ -468,6 +479,12 @@
       <div id="abaHistoricoView" style="display:none;">
         <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Peladas anteriores (cada pelada é arquivada aqui quando você inicia uma nova):</p>
         <div id="listaHistorico"><p style="color:#777;">Abra esta aba para carregar...</p></div>
+      </div>
+
+      <!-- Conteúdo da Aba Cobrança -->
+      <div id="abaCobrancaView" style="display:none;">
+        <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Pagamentos das últimas 3 peladas (atual + 2 anteriores). Toque em ✅/❌ para quitar ou marcar pendência.</p>
+        <div id="conteudoCobranca"><p style="color:#777;">Abra esta aba para carregar...</p></div>
       </div>
 
       <!-- Conteúdo da Aba Pix -->
@@ -830,6 +847,7 @@
 
       const resumo = {
         vitoriasTimes, vitoriasJogadores, golsTime, derrotasTimes, derrotasJogadores,
+        pagamentos,
         totalGols: Object.values(golsTime).reduce((s, g) => s + g, 0),
         qtdJogadores: Object.keys(vitoriasJogadores).length
       };
@@ -892,6 +910,142 @@
       `;
     }
 
+    // ===== COBRANÇA (pagamentos das últimas 3 peladas) =====
+    let cobrancaCache = []; // [{ id, data, pagamentos, arquivada, resumo }]
+
+    async function carregarCobranca() {
+      const c = document.getElementById('conteudoCobranca');
+      if (!c) return;
+      c.innerHTML = '<p style="color:#777;">Carregando...</p>';
+
+      const peladas = [];
+      // Pelada atual (em andamento), se já houver pagantes
+      if (Object.keys(pagamentos).length > 0) {
+        peladas.push({ id: 'atual', data: new Date().toLocaleDateString('pt-BR'), pagamentos, arquivada: false });
+      }
+
+      // Últimas arquivadas, completando até 3 no total
+      if (sb) {
+        try {
+          const limite = peladas.length > 0 ? 2 : 3;
+          const { data, error } = await sb.from('pelada_historico')
+            .select('id, data, resumo')
+            .order('data', { ascending: false })
+            .order('id', { ascending: false })
+            .limit(limite);
+          if (!error && Array.isArray(data)) {
+            data.forEach(row => {
+              const resumo = row.resumo || {};
+              if (!resumo.pagamentos) resumo.pagamentos = {};
+              peladas.push({
+                id: row.id,
+                data: row.data ? row.data.split('-').reverse().join('/') : '',
+                pagamentos: resumo.pagamentos,
+                arquivada: true,
+                resumo
+              });
+            });
+          }
+        } catch (e) { console.warn(e); }
+      }
+
+      cobrancaCache = peladas;
+
+      if (peladas.length === 0) {
+        c.innerHTML = '<p style="color:#777;">Nenhuma pelada com pagamentos ainda. Marque os pagantes e, ao iniciar a próxima pelada, o histórico de cobrança começa a acumular.</p>';
+        return;
+      }
+      c.innerHTML = renderCobranca(peladas);
+    }
+
+    // Lista de pendentes ordenada (mais peladas devendo primeiro)
+    function pendentesDe(peladas) {
+      const nomes = new Set();
+      peladas.forEach(p => Object.keys(p.pagamentos).forEach(n => nomes.add(n)));
+      const pend = {};
+      nomes.forEach(n => { pend[n] = peladas.reduce((s, p) => s + (p.pagamentos[n] === 'devendo' ? 1 : 0), 0); });
+      const ordenados = Array.from(nomes).sort((a, b) => (pend[b] - pend[a]) || a.localeCompare(b));
+      return { pend, ordenados, pendentes: ordenados.filter(n => pend[n] > 0) };
+    }
+
+    function renderCobranca(peladas) {
+      const { pend, ordenados, pendentes } = pendentesDe(peladas);
+
+      let html = '';
+      html += `<button style="width:100%; margin-bottom:14px; background:#25D366; color:#fff;" onclick="cobrarPendentes()">📲 Cobrar pendentes (${pendentes.length})</button>`;
+
+      if (pendentes.length === 0) {
+        html += '<div class="stat-box" style="text-align:center;">🎉 Ninguém está pendente nas últimas peladas!</div>';
+      } else {
+        html += '<div class="stat-box"><div class="stat-title">⚠️ Pendentes</div>';
+        pendentes.forEach(n => {
+          html += `<div class="ranking-item"><span>${n}</span><strong style="color:var(--danger)">${pend[n]}× devendo</strong></div>`;
+        });
+        html += '</div>';
+      }
+
+      // Matriz jogador × pelada
+      html += '<div style="overflow-x:auto; margin-top:6px;"><table class="cobranca-tabela"><thead><tr><th>Jogador</th>';
+      peladas.forEach(p => { html += `<th>${p.arquivada ? p.data : 'Hoje'}</th>`; });
+      html += '</tr></thead><tbody>';
+      ordenados.forEach(n => {
+        const nomeSeguro = String(n).replace(/'/g, "\\'");
+        html += `<tr><td class="cob-nome">${n}</td>`;
+        peladas.forEach(p => {
+          const st = p.pagamentos[n];
+          if (st === undefined) {
+            html += '<td class="cob-cel"><span style="color:#555;">—</span></td>';
+          } else {
+            const emoji = st === 'pago' ? '✅' : '❌';
+            html += `<td class="cob-cel"><button class="btn-emoji ${st === 'pago' ? 'active-pago' : 'active-devendo'}" onclick="alternarCobranca('${p.id}', '${nomeSeguro}')">${emoji}</button></td>`;
+          }
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    async function alternarCobranca(peladaId, nome) {
+      const pelada = cobrancaCache.find(p => String(p.id) === String(peladaId));
+      if (!pelada) return;
+      const novo = pelada.pagamentos[nome] === 'pago' ? 'devendo' : 'pago';
+
+      if (!pelada.arquivada) {
+        // Pelada atual: mesma fonte da aba Pagantes (sincroniza para todos)
+        snapshotEstado();
+        pagamentos[nome] = novo;
+        pelada.pagamentos = pagamentos;
+        salvarEstado();
+        atualizarListaPagantesUI();
+      } else {
+        // Pelada arquivada: atualiza a linha no histórico (nuvem)
+        pelada.pagamentos[nome] = novo;
+        pelada.resumo.pagamentos = pelada.pagamentos;
+        if (sb) {
+          try {
+            await sb.from('pelada_historico').update({ resumo: pelada.resumo }).eq('id', pelada.id);
+          } catch (e) { console.warn('Falha ao atualizar pagamento no histórico:', e); }
+        }
+      }
+      const c = document.getElementById('conteudoCobranca');
+      if (c) c.innerHTML = renderCobranca(cobrancaCache);
+    }
+
+    // Abre o WhatsApp com a lista de pendentes das últimas peladas
+    function cobrarPendentes() {
+      const { pend, pendentes } = pendentesDe(cobrancaCache);
+      if (pendentes.length === 0) { alert('🎉 Ninguém está pendente nas últimas peladas!'); return; }
+
+      let msg = '⚽ *Futebol de Segunda da Sal CMA*\n\n';
+      msg += `💰 *Pendências das últimas peladas* (${pendentes.length}):\n`;
+      pendentes.forEach(n => { msg += `• ${n}${pend[n] > 1 ? ` (${pend[n]} peladas)` : ''}\n`; });
+      msg += '\n📲 *Pix (Telefone):* 62992980612';
+      msg += '\nFelipe Viana Feu — Mercado Pago';
+      msg += '\n\nBora acertar? 🙏';
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+    }
+
     // ----- SISTEMA DE MENU & ABAS -----
     function abrirMenu() {
       atualizarListaPagantesUI();
@@ -908,21 +1062,25 @@
       const btnPagantes = document.getElementById('tabPagantesBtn');
       const btnRelatorio = document.getElementById('tabRelatorioBtn');
       const btnHistorico = document.getElementById('tabHistoricoBtn');
+      const btnCobranca = document.getElementById('tabCobrancaBtn');
       const btnPix = document.getElementById('tabPixBtn');
 
       const viewPagantes = document.getElementById('abaPagantesView');
       const viewRelatorio = document.getElementById('abaRelatorioView');
       const viewHistorico = document.getElementById('abaHistoricoView');
+      const viewCobranca = document.getElementById('abaCobrancaView');
       const viewPix = document.getElementById('abaPixView');
 
       btnPagantes.classList.remove('active');
       btnRelatorio.classList.remove('active');
       btnHistorico.classList.remove('active');
+      btnCobranca.classList.remove('active');
       btnPix.classList.remove('active');
 
       viewPagantes.style.display = 'none';
       viewRelatorio.style.display = 'none';
       viewHistorico.style.display = 'none';
+      viewCobranca.style.display = 'none';
       viewPix.style.display = 'none';
 
       if (aba === 'pagantes') {
@@ -938,6 +1096,10 @@
         btnHistorico.classList.add('active');
         viewHistorico.style.display = 'block';
         carregarHistorico();
+      } else if (aba === 'cobranca') {
+        btnCobranca.classList.add('active');
+        viewCobranca.style.display = 'block';
+        carregarCobranca();
       } else if (aba === 'pix') {
         btnPix.classList.add('active');
         viewPix.style.display = 'block';
