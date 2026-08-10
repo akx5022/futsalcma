@@ -518,6 +518,15 @@
     </div>
   </div>
 
+  <!-- Modal do Empate: admin escolhe quem joga primeiro (par ou ímpar) -->
+  <div class="modal-overlay" id="empateModal">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-header"><h2>🤝 Empate!</h2></div>
+      <p style="color:var(--muted); font-size:0.9rem; margin:0 0 14px;">Tirem par ou ímpar na quadra. Quem ganhou vai <strong style="color:#fff;">na frente</strong> (joga primeiro):</p>
+      <div id="empateBotoes" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </div>
+  </div>
+
   <!-- Tela Cheia de Cronômetro -->
   <div id="fullscreenTimer">
     <div class="fullscreen-header">⚽ PARTIDA EM ANDAMENTO</div>
@@ -1878,6 +1887,26 @@
 
     function empate() {
       if (times.length < 2) return;
+      // Pergunta ao admin quem vai na frente (o par ou ímpar é decidido na quadra)
+      const timeA = times[0], timeB = times[1];
+      const cont = document.getElementById('empateBotoes');
+      if (cont) {
+        cont.innerHTML =
+          `<button style="${getBtnColorStyle(timeA.id)}" onclick="resolverEmpate(0)">${nomeTime(timeA.id)} joga primeiro</button>` +
+          `<button style="${getBtnColorStyle(timeB.id)}" onclick="resolverEmpate(1)">${nomeTime(timeB.id)} joga primeiro</button>` +
+          `<button class="btn-reset" style="color:#fff; margin-top:4px;" onclick="fecharEmpateModal()">Cancelar</button>`;
+      }
+      document.getElementById('empateModal').style.display = 'block';
+    }
+
+    function fecharEmpateModal() {
+      document.getElementById('empateModal').style.display = 'none';
+    }
+
+    // frenteIndex: 0 = time da esquerda joga primeiro | 1 = time da direita joga primeiro
+    function resolverEmpate(frenteIndex) {
+      fecharEmpateModal();
+      if (times.length < 2) return;
       snapshotEstado();
 
       // Gols totais por time (placar final desta partida)
@@ -1885,14 +1914,17 @@
       golsTime[idA] = (golsTime[idA] || 0) + golsA;
       golsTime[idB] = (golsTime[idB] || 0) + golsB;
 
-      // Empate: os dois times saem do campo e vão para o fim da fila.
-      // Como saíram do campo, a sequência de vitórias seguidas zera para ambos.
+      // Empate: os dois times saem do campo (a sequência de vitórias seguidas zera).
       let tA = times.shift();
       let tB = times.shift();
       tA.partidasSeguidas = 0;
       tB.partidasSeguidas = 0;
-      times.push(tA);
-      times.push(tB);
+
+      // Ordem na fila escolhida pelo admin: quem vai na frente volta a jogar primeiro.
+      const frente = (frenteIndex === 1) ? tB : tA;
+      const atras  = (frenteIndex === 1) ? tA : tB;
+      times.push(frente);
+      times.push(atras);
 
       golsA = 0; golsB = 0; // zera o placar para a próxima partida
       resetTimer();
