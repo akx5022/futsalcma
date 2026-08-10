@@ -405,6 +405,13 @@
     .nivel-estrelas { display: flex; gap: 1px; }
     .estrela-btn { background: transparent; border: none; width: auto; padding: 2px 3px; font-size: 1.25rem; line-height: 1; cursor: pointer; color: #3a3f47; box-shadow: none; }
     .estrela-btn.on { color: #f5c518; }
+    .nivel-badge { color: #f5c518; font-size: 0.78rem; font-weight: 700; margin-left: 4px; }
+
+    /* Controles da tela de Níveis (ordenar / filtrar) */
+    .niveis-linha { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .ctrl-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
+    .ord-btn, .filtro-chip { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.78rem; font-weight: 700; width: auto; cursor: pointer; box-shadow: none; }
+    .ord-btn.ativo, .filtro-chip.ativo { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; border-color: transparent; }
   </style>
 </head>
 <body>
@@ -548,7 +555,8 @@
         <input type="text" id="inputNivelNome" placeholder="Adicionar jogador para avaliar..." />
         <button onclick="adicionarJogadorNivel()">Add</button>
       </div>
-      <div id="listaNiveis" style="margin-top:12px;"></div>
+      <div id="niveisControles" style="margin-top:14px;"></div>
+      <div id="listaNiveis" style="margin-top:6px;"></div>
     </div>
   </div>
 
@@ -1211,14 +1219,50 @@
       return Array.from(set).sort((a, b) => a.localeCompare(b));
     }
 
+    // Controles da tela de Níveis (só visual, não sincroniza)
+    let niveisOrdem = 'nome';   // 'nome' | 'estrela'
+    let niveisFiltro = 0;        // 0 = todas as estrelas | 1..5 = só esse nível
+    function ordenarNiveis(modo) { niveisOrdem = modo; atualizarNiveisUI(); }
+    function filtrarNiveis(n) { niveisFiltro = n; atualizarNiveisUI(); }
+
     function atualizarNiveisUI() {
       const c = document.getElementById('listaNiveis');
+      const ctrl = document.getElementById('niveisControles');
       if (!c) return;
-      const nomes = nomesConhecidos();
+
+      const todos = nomesConhecidos();
+
+      // Barra de controles (ordenar + filtrar)
+      if (ctrl) {
+        let chips = `<button class="filtro-chip ${niveisFiltro === 0 ? 'ativo' : ''}" onclick="filtrarNiveis(0)">Todas</button>`;
+        for (let i = 5; i >= 1; i--) {
+          chips += `<button class="filtro-chip ${niveisFiltro === i ? 'ativo' : ''}" onclick="filtrarNiveis(${i})">${i}★</button>`;
+        }
+        ctrl.innerHTML =
+          `<div class="niveis-linha"><span class="ctrl-label">Ordenar</span>` +
+          `<button class="ord-btn ${niveisOrdem === 'nome' ? 'ativo' : ''}" onclick="ordenarNiveis('nome')">A-Z</button>` +
+          `<button class="ord-btn ${niveisOrdem === 'estrela' ? 'ativo' : ''}" onclick="ordenarNiveis('estrela')">⭐ Nível</button></div>` +
+          `<div class="niveis-linha"><span class="ctrl-label">Filtrar</span>${chips}</div>`;
+      }
+
+      // Filtra e ordena
+      let nomes = todos.slice();
+      if (niveisFiltro >= 1 && niveisFiltro <= 5) {
+        nomes = nomes.filter(n => estrelasDe(n) === niveisFiltro);
+      }
+      if (niveisOrdem === 'estrela') {
+        nomes.sort((a, b) => (estrelasDe(b) - estrelasDe(a)) || a.localeCompare(b));
+      } else {
+        nomes.sort((a, b) => a.localeCompare(b));
+      }
+
       if (!nomes.length) {
-        c.innerHTML = '<p style="color:#777; font-size:0.85rem; margin:0;">Nenhum jogador ainda. Sorteie uma pelada ou adicione nomes acima para avaliar.</p>';
+        c.innerHTML = `<p style="color:#777; font-size:0.85rem; margin:8px 0 0;">${
+          todos.length ? 'Nenhum jogador com esse filtro.' : 'Nenhum jogador ainda. Sorteie uma pelada ou adicione nomes acima para avaliar.'
+        }</p>`;
         return;
       }
+
       c.innerHTML = nomes.map(n => {
         const e = estrelasDe(n);
         const seguro = String(n).replace(/'/g, "\\'");
@@ -1226,7 +1270,7 @@
         for (let i = 1; i <= 5; i++) {
           estrelasHtml += `<button class="estrela-btn ${i <= e ? 'on' : ''}" onclick="definirEstrela('${seguro}', ${i})">★</button>`;
         }
-        return `<div class="nivel-item"><span class="nivel-nome">${n}</span><div class="nivel-estrelas">${estrelasHtml}</div></div>`;
+        return `<div class="nivel-item"><span class="nivel-nome">${n} <span class="nivel-badge">${e}★</span></span><div class="nivel-estrelas">${estrelasHtml}</div></div>`;
       }).join('');
     }
 
