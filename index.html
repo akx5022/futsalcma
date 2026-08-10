@@ -86,6 +86,7 @@
       text-transform: uppercase;
       letter-spacing: 0.14em;
       margin: 8px 0 16px;
+      user-select: none; -webkit-user-select: none;
     }
     h2 {
       font-size: 1rem;
@@ -420,7 +421,6 @@
       <div class="nav-tabs">
         <button class="tab-btn active" id="tabPagantesBtn" onclick="mudarAba('pagantes')">💰 Pagantes</button>
         <button class="tab-btn" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">📊 Relatório</button>
-        <button class="tab-btn" id="tabNiveisBtn" onclick="mudarAba('niveis')">⭐ Níveis</button>
         <button class="tab-btn" id="tabHistoricoBtn" onclick="mudarAba('historico')">📅 Histórico</button>
         <button class="tab-btn" id="tabCobrancaBtn" onclick="mudarAba('cobranca')">🧾 Cobrança</button>
         <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Pix</button>
@@ -484,16 +484,6 @@
         </div>
       </div>
 
-      <!-- Conteúdo da Aba Níveis (estrelas dos jogadores) -->
-      <div id="abaNiveisView" style="display:none;">
-        <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Defina o nível de cada jogador (1 a 5 ⭐). O sorteio usa isso para <strong style="color:#fff;">equilibrar</strong> os times (craques separados, fracos com fortes). Sem nota = 3⭐.</p>
-        <div class="add-player-box">
-          <input type="text" id="inputNivelNome" placeholder="Adicionar jogador para avaliar..." />
-          <button onclick="adicionarJogadorNivel()">Add</button>
-        </div>
-        <div id="listaNiveis" style="margin-top:12px;"></div>
-      </div>
-
       <!-- Conteúdo da Aba Histórico -->
       <div id="abaHistoricoView" style="display:none;">
         <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Peladas anteriores (cada pelada é arquivada aqui quando você inicia uma nova):</p>
@@ -546,6 +536,22 @@
     </div>
   </div>
 
+  <!-- Modal SECRETO de Níveis (só organizadores) — aberto por 5 toques no subtítulo -->
+  <div class="modal-overlay" id="niveisModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>⭐ Níveis (organizadores)</h2>
+        <button class="close-btn" onclick="fecharNiveis()">✖</button>
+      </div>
+      <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Defina o nível de cada jogador (1 a 5 ⭐). O sorteio usa isso para <strong style="color:#fff;">equilibrar</strong> os times (craques separados, fracos com fortes). Sem nota = 3⭐. Esta tela é secreta.</p>
+      <div class="add-player-box">
+        <input type="text" id="inputNivelNome" placeholder="Adicionar jogador para avaliar..." />
+        <button onclick="adicionarJogadorNivel()">Add</button>
+      </div>
+      <div id="listaNiveis" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
   <!-- Tela Cheia de Cronômetro -->
   <div id="fullscreenTimer">
     <div class="fullscreen-header">⚽ PARTIDA EM ANDAMENTO</div>
@@ -561,7 +567,7 @@
       <i data-lucide="menu" class="menu-icon" onclick="abrirMenu()" width="32" height="32"></i>
       <h1>⚽ Futebol de Segunda da Sal CMA</h1>
     </div>
-    <div class="sub-title">Gerenciador de Pelada & Sorteio</div>
+    <div class="sub-title" onclick="tentarAbrirNiveis()">Gerenciador de Pelada & Sorteio</div>
 
     <!-- Indicador de sincronização com a nuvem -->
     <div class="sync-badge" id="syncBadge"><span class="dot"></span><span id="syncTexto">Conectando à nuvem...</span></div>
@@ -1093,28 +1099,24 @@
     function mudarAba(aba) {
       const btnPagantes = document.getElementById('tabPagantesBtn');
       const btnRelatorio = document.getElementById('tabRelatorioBtn');
-      const btnNiveis = document.getElementById('tabNiveisBtn');
       const btnHistorico = document.getElementById('tabHistoricoBtn');
       const btnCobranca = document.getElementById('tabCobrancaBtn');
       const btnPix = document.getElementById('tabPixBtn');
 
       const viewPagantes = document.getElementById('abaPagantesView');
       const viewRelatorio = document.getElementById('abaRelatorioView');
-      const viewNiveis = document.getElementById('abaNiveisView');
       const viewHistorico = document.getElementById('abaHistoricoView');
       const viewCobranca = document.getElementById('abaCobrancaView');
       const viewPix = document.getElementById('abaPixView');
 
       btnPagantes.classList.remove('active');
       btnRelatorio.classList.remove('active');
-      btnNiveis.classList.remove('active');
       btnHistorico.classList.remove('active');
       btnCobranca.classList.remove('active');
       btnPix.classList.remove('active');
 
       viewPagantes.style.display = 'none';
       viewRelatorio.style.display = 'none';
-      viewNiveis.style.display = 'none';
       viewHistorico.style.display = 'none';
       viewCobranca.style.display = 'none';
       viewPix.style.display = 'none';
@@ -1128,10 +1130,6 @@
         btnRelatorio.classList.add('active');
         viewRelatorio.style.display = 'block';
         atualizarRelatorioUI();
-      } else if (aba === 'niveis') {
-        btnNiveis.classList.add('active');
-        viewNiveis.style.display = 'block';
-        atualizarNiveisUI();
       } else if (aba === 'historico') {
         btnHistorico.classList.add('active');
         viewHistorico.style.display = 'block';
@@ -1248,6 +1246,24 @@
       inp.value = '';
       atualizarNiveisUI();
       salvarEstado();
+    }
+
+    function abrirNiveis() {
+      atualizarNiveisUI();
+      document.getElementById('niveisModal').style.display = 'block';
+    }
+
+    function fecharNiveis() {
+      document.getElementById('niveisModal').style.display = 'none';
+    }
+
+    // Gesto secreto: 5 toques no subtítulo abrem a tela de Níveis (só organizadores sabem)
+    let toquesNivel = 0, toquesNivelTimer = null;
+    function tentarAbrirNiveis() {
+      toquesNivel++;
+      clearTimeout(toquesNivelTimer);
+      toquesNivelTimer = setTimeout(() => { toquesNivel = 0; }, 1500);
+      if (toquesNivel >= 5) { toquesNivel = 0; abrirNiveis(); }
     }
 
     function alternarPagamento(nome, statusClick) {
