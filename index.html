@@ -1525,11 +1525,19 @@
       }
     }
 
+    // Limpa uma linha da lista: tira a numeração ("1 -", "5-", "17 -") e deixa em MAIÚSCULO
+    function limparNome(linha) {
+      return String(linha)
+        .replace(/^\s*\d+\s*[-–—.)]*\s*/, '')
+        .trim()
+        .toUpperCase();
+    }
+
     function gerarSorteio() {
       const texto = document.getElementById('inputNomes').value.trim();
       if (!texto) return alert("Digite os nomes dos jogadores!");
 
-      let nomes = texto.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+      let nomes = texto.split('\n').map(limparNome).filter(n => n.length > 0);
       if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
 
       snapshotEstado();
@@ -1577,7 +1585,7 @@
 
     function adicionarNovoJogador() {
       const input = document.getElementById('novoJogadorNome');
-      const nome = input.value.trim();
+      const nome = limparNome(input.value);
       if (!nome) return alert("Digite o nome do jogador!");
 
       snapshotEstado();
