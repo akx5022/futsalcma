@@ -396,6 +396,14 @@
     .cob-nome { padding: 8px; color: #fff; white-space: nowrap; border-bottom: 1px solid var(--border); }
     .cob-cel { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
     .cob-cel .btn-emoji { padding: 4px 9px; font-size: 0.95rem; }
+
+    /* Níveis (estrelas dos jogadores) */
+    .nivel-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+    .nivel-item:last-child { border-bottom: none; }
+    .nivel-nome { color: #fff; font-size: 0.95rem; }
+    .nivel-estrelas { display: flex; gap: 1px; }
+    .estrela-btn { background: transparent; border: none; width: auto; padding: 2px 3px; font-size: 1.25rem; line-height: 1; cursor: pointer; color: #3a3f47; box-shadow: none; }
+    .estrela-btn.on { color: #f5c518; }
   </style>
 </head>
 <body>
@@ -412,6 +420,7 @@
       <div class="nav-tabs">
         <button class="tab-btn active" id="tabPagantesBtn" onclick="mudarAba('pagantes')">💰 Pagantes</button>
         <button class="tab-btn" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">📊 Relatório</button>
+        <button class="tab-btn" id="tabNiveisBtn" onclick="mudarAba('niveis')">⭐ Níveis</button>
         <button class="tab-btn" id="tabHistoricoBtn" onclick="mudarAba('historico')">📅 Histórico</button>
         <button class="tab-btn" id="tabCobrancaBtn" onclick="mudarAba('cobranca')">🧾 Cobrança</button>
         <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Pix</button>
@@ -473,6 +482,16 @@
           <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">😞 Jogadores que Mais Perderam:</h3>
           <ul class="ranking-list" id="rankingDerrotasJogadoresList"></ul>
         </div>
+      </div>
+
+      <!-- Conteúdo da Aba Níveis (estrelas dos jogadores) -->
+      <div id="abaNiveisView" style="display:none;">
+        <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Defina o nível de cada jogador (1 a 5 ⭐). O sorteio usa isso para <strong style="color:#fff;">equilibrar</strong> os times (craques separados, fracos com fortes). Sem nota = 3⭐.</p>
+        <div class="add-player-box">
+          <input type="text" id="inputNivelNome" placeholder="Adicionar jogador para avaliar..." />
+          <button onclick="adicionarJogadorNivel()">Add</button>
+        </div>
+        <div id="listaNiveis" style="margin-top:12px;"></div>
       </div>
 
       <!-- Conteúdo da Aba Histórico -->
@@ -636,6 +655,9 @@
     // Cores escolhidas pelo admin (id do time -> chave de cor). Vazio = cor padrão pela ordem.
     let coresTimes = {};
 
+    // Nível dos jogadores (NOME -> 1..5 estrelas). Persiste entre peladas (como os mensalistas).
+    let estrelas = {};
+
     // Modo do jogo: '7e2' = 7 min OU 2 gols | '10min' = 10 min corridos (2 gols não encerram)
     let modoJogo = '7e2';
     function duracaoJogoSeg() { return modoJogo === '10min' ? 600 : 420; }
@@ -671,7 +693,7 @@
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
         golsA, golsB, mensalistas,
-        golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo,
+        golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
     }
@@ -692,6 +714,7 @@
       derrotasTimes = estado.derrotasTimes || {};
       derrotasJogadores = estado.derrotasJogadores || {};
       coresTimes = estado.coresTimes || {};
+      estrelas = estado.estrelas || {};
       modoJogo = estado.modoJogo === '10min' ? '10min' : '7e2';
 
       // Cronômetro compartilhado
@@ -1070,24 +1093,28 @@
     function mudarAba(aba) {
       const btnPagantes = document.getElementById('tabPagantesBtn');
       const btnRelatorio = document.getElementById('tabRelatorioBtn');
+      const btnNiveis = document.getElementById('tabNiveisBtn');
       const btnHistorico = document.getElementById('tabHistoricoBtn');
       const btnCobranca = document.getElementById('tabCobrancaBtn');
       const btnPix = document.getElementById('tabPixBtn');
 
       const viewPagantes = document.getElementById('abaPagantesView');
       const viewRelatorio = document.getElementById('abaRelatorioView');
+      const viewNiveis = document.getElementById('abaNiveisView');
       const viewHistorico = document.getElementById('abaHistoricoView');
       const viewCobranca = document.getElementById('abaCobrancaView');
       const viewPix = document.getElementById('abaPixView');
 
       btnPagantes.classList.remove('active');
       btnRelatorio.classList.remove('active');
+      btnNiveis.classList.remove('active');
       btnHistorico.classList.remove('active');
       btnCobranca.classList.remove('active');
       btnPix.classList.remove('active');
 
       viewPagantes.style.display = 'none';
       viewRelatorio.style.display = 'none';
+      viewNiveis.style.display = 'none';
       viewHistorico.style.display = 'none';
       viewCobranca.style.display = 'none';
       viewPix.style.display = 'none';
@@ -1101,6 +1128,10 @@
         btnRelatorio.classList.add('active');
         viewRelatorio.style.display = 'block';
         atualizarRelatorioUI();
+      } else if (aba === 'niveis') {
+        btnNiveis.classList.add('active');
+        viewNiveis.style.display = 'block';
+        atualizarNiveisUI();
       } else if (aba === 'historico') {
         btnHistorico.classList.add('active');
         viewHistorico.style.display = 'block';
@@ -1171,6 +1202,51 @@
       snapshotEstado();
       mensalistas = mensalistas.filter(m => m !== nome);
       atualizarMensalistasUI();
+      salvarEstado();
+    }
+
+    // ----- NÍVEIS (estrelas dos jogadores) -----
+    function nomesConhecidos() {
+      const set = new Set();
+      Object.keys(estrelas).forEach(n => set.add(n));
+      Object.keys(pagamentos).forEach(n => set.add(n));
+      return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }
+
+    function atualizarNiveisUI() {
+      const c = document.getElementById('listaNiveis');
+      if (!c) return;
+      const nomes = nomesConhecidos();
+      if (!nomes.length) {
+        c.innerHTML = '<p style="color:#777; font-size:0.85rem; margin:0;">Nenhum jogador ainda. Sorteie uma pelada ou adicione nomes acima para avaliar.</p>';
+        return;
+      }
+      c.innerHTML = nomes.map(n => {
+        const e = estrelasDe(n);
+        const seguro = String(n).replace(/'/g, "\\'");
+        let estrelasHtml = '';
+        for (let i = 1; i <= 5; i++) {
+          estrelasHtml += `<button class="estrela-btn ${i <= e ? 'on' : ''}" onclick="definirEstrela('${seguro}', ${i})">★</button>`;
+        }
+        return `<div class="nivel-item"><span class="nivel-nome">${n}</span><div class="nivel-estrelas">${estrelasHtml}</div></div>`;
+      }).join('');
+    }
+
+    function definirEstrela(nome, n) {
+      snapshotEstado();
+      estrelas[nome] = n;
+      atualizarNiveisUI();
+      salvarEstado();
+    }
+
+    function adicionarJogadorNivel() {
+      const inp = document.getElementById('inputNivelNome');
+      const nome = limparNome(inp.value);
+      if (!nome) return;
+      snapshotEstado();
+      if (estrelas[nome] === undefined) estrelas[nome] = 3;
+      inp.value = '';
+      atualizarNiveisUI();
       salvarEstado();
     }
 
@@ -1533,6 +1609,44 @@
         .toUpperCase();
     }
 
+    // Nível de um jogador (1..5). Sem nota = 3 (média).
+    function estrelasDe(nome) {
+      const e = estrelas[nome];
+      return (e >= 1 && e <= 5) ? e : 3;
+    }
+
+    // Monta times EQUILIBRADOS pelas estrelas:
+    // - espalha os craques (5⭐ evitam cair no mesmo time);
+    // - sempre coloca o próximo mais forte no time mais fraco (nivela: junta fracos com fortes).
+    // Mantém times de 4 (o último pode ser menor), pra não brigar com o recomporTimes.
+    function montarTimesEquilibrados(nomes) {
+      const N = nomes.length;
+      const T = Math.max(1, Math.ceil(N / 4));
+      const rem = N - 4 * (T - 1); // tamanho do último time (1..4)
+      const lista = nomes.map(n => ({ nome: n, e: estrelasDe(n) }));
+      lista.sort((a, b) => (b.e - a.e) || (Math.random() - 0.5));
+
+      const teams = Array.from({ length: T }, (_, i) => ({
+        jogadores: [], soma: 0, tem5: false, cap: (i < T - 1 ? 4 : rem)
+      }));
+
+      lista.forEach(p => {
+        let cand = teams.filter(t => t.jogadores.length < t.cap);
+        if (p.e >= 5) {
+          const sem5 = cand.filter(t => !t.tem5);
+          if (sem5.length) cand = sem5; // 5⭐ prefere time sem outro 5⭐
+        }
+        // vai para o time mais fraco (menor soma), depois o menos cheio
+        cand.sort((a, b) => (a.soma - b.soma) || (a.jogadores.length - b.jogadores.length) || (Math.random() - 0.5));
+        const alvo = cand[0];
+        alvo.jogadores.push(p.nome);
+        alvo.soma += p.e;
+        if (p.e >= 5) alvo.tem5 = true;
+      });
+
+      return teams.map(t => t.jogadores);
+    }
+
     function gerarSorteio() {
       const texto = document.getElementById('inputNomes').value.trim();
       if (!texto) return alert("Digite os nomes dos jogadores!");
@@ -1541,8 +1655,7 @@
       if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
 
       snapshotEstado();
-      nomes.sort(() => Math.random() - 0.5);
-      times = []; contadorTimes = 1; let timeAtual = [];
+      times = []; contadorTimes = 1;
       golsA = 0; golsB = 0;
 
       vitoriasTimes = {};
@@ -1558,20 +1671,15 @@
       nomes.forEach((nome) => {
         registrarPagante(nome);
         vitoriasJogadores[nome] = 0;
-
-        timeAtual.push(nome);
-        if (timeAtual.length === 4) {
-          times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 });
-          vitoriasTimes[contadorTimes] = 0;
-          contadorTimes++;
-          timeAtual = [];
-        }
       });
-      if (timeAtual.length > 0) {
-        times.push({ id: contadorTimes, jogadores: timeAtual, partidasSeguidas: 0 });
+
+      // Sorteio EQUILIBRADO pelas estrelas (espalha os craques, nivela os times)
+      const grupos = montarTimesEquilibrados(nomes);
+      grupos.forEach((jogadores) => {
+        times.push({ id: contadorTimes, jogadores, partidasSeguidas: 0 });
         vitoriasTimes[contadorTimes] = 0;
         contadorTimes++;
-      }
+      });
 
       document.getElementById('setup').style.display = 'none';
       document.getElementById('timerArea').style.display = 'block';
