@@ -414,6 +414,67 @@
     .ctrl-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
     .ord-btn, .filtro-chip { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.78rem; font-weight: 700; width: auto; cursor: pointer; box-shadow: none; }
     .ord-btn.ativo, .filtro-chip.ativo { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; border-color: transparent; }
+
+    /* ===== Comemoração em tela cheia ===== */
+    .celebracao {
+      position: fixed; inset: 0; z-index: 20000; display: none;
+      background: var(--cel-cor, #c6ff00); color: var(--cel-tinta, #000);
+      align-items: center; justify-content: center; text-align: center; overflow: hidden;
+      cursor: pointer; user-select: none; -webkit-user-select: none;
+    }
+    .celebracao.ativa { display: flex; animation: celRevelar 1.6s cubic-bezier(.7,0,.2,1) both; }
+    .cel-conteudo { padding: 24px; position: relative; z-index: 1; }
+    .cel-titulo {
+      font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700;
+      font-size: clamp(64px, 22vw, 160px); line-height: .9; letter-spacing: -0.06em;
+      animation: celTitulo 1.6s cubic-bezier(.2,.8,.2,1.15) both;
+    }
+    .cel-vitoria .cel-titulo { font-size: clamp(44px, 14vw, 110px); }
+    .cel-sub {
+      margin-top: 14px; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700;
+      font-size: 0.95rem; letter-spacing: .16em; text-transform: uppercase;
+      animation: celSub 1.6s ease both;
+    }
+    .cel-particulas { position: absolute; left: 50%; top: 50%; }
+    .cel-particulas i {
+      position: absolute; width: 10px; height: 10px; border-radius: 3px; background: currentColor;
+      animation: celParticula 1.6s cubic-bezier(.2,.8,.2,1) both;
+    }
+    @keyframes celRevelar {
+      0%   { clip-path: circle(0% at var(--cel-origem, 50% 50%)); opacity: 1; }
+      24%  { clip-path: circle(150% at var(--cel-origem, 50% 50%)); }
+      85%  { opacity: 1; }
+      100% { clip-path: circle(150% at var(--cel-origem, 50% 50%)); opacity: 0; }
+    }
+    @keyframes celTitulo {
+      0%, 12%   { transform: scale(.4) rotate(-8deg); opacity: 0; }
+      30%       { transform: scale(1.1) rotate(-3deg); opacity: 1; }
+      40%, 78%  { transform: scale(1) rotate(-3deg); opacity: 1; }
+      92%, 100% { transform: scale(1) rotate(-3deg); opacity: 0; }
+    }
+    @keyframes celSub { 0%, 25% { opacity: 0; transform: translateY(10px); } 40%, 78% { opacity: 1; transform: none; } 92%, 100% { opacity: 0; } }
+    @keyframes celParticula {
+      0%, 18% { opacity: 0; transform: translate(0, 0) rotate(0); }
+      26%     { opacity: 1; }
+      75%     { opacity: 1; transform: translate(var(--x), var(--y)) rotate(var(--r)); }
+      100%    { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--r)); }
+    }
+    /* Empate: mais contido (sem tremida nem partículas) */
+    .cel-empate .cel-titulo { animation-name: celTituloSuave; }
+    @keyframes celTituloSuave { 0%, 15% { opacity: 0; transform: scale(.9); } 35%, 78% { opacity: 1; transform: none; } 95%, 100% { opacity: 0; } }
+    /* Tremida da página por trás */
+    #mainContainer.tremendo { animation: tremer .45s cubic-bezier(.36,.07,.19,.97) .3s both; }
+    @keyframes tremer {
+      15% { transform: translateX(-6px) rotate(-1deg); } 30% { transform: translateX(6px) rotate(1deg); }
+      45% { transform: translateX(-4px); } 60% { transform: translateX(3px); } 75% { transform: translateX(-1px); } 100% { transform: none; }
+    }
+    /* Movimento reduzido: só um fade */
+    .celebracao.reduzido, .celebracao.reduzido .cel-titulo, .celebracao.reduzido .cel-sub { animation: celFade 1.2s ease both; }
+    @keyframes celFade { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      #mainContainer.tremendo { animation: none !important; }
+      .cel-particulas { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -562,6 +623,15 @@
     </div>
   </div>
 
+  <!-- Comemoração em tela cheia (gol / vitória / empate). Um toque pula. -->
+  <div id="celebracao" class="celebracao" aria-live="assertive" onclick="pularCelebracao()">
+    <div class="cel-conteudo">
+      <div class="cel-titulo" id="celTitulo"></div>
+      <div class="cel-sub" id="celSub"></div>
+    </div>
+    <div class="cel-particulas" id="celParticulas"></div>
+  </div>
+
   <!-- Tela Cheia de Cronômetro -->
   <div id="fullscreenTimer">
     <div class="fullscreen-header">⚽ PARTIDA EM ANDAMENTO</div>
@@ -684,13 +754,22 @@
     let rodando = false;
     let alarmeTimeout = null;
 
+    // ===== COMEMORAÇÕES (gol / vitória / empate) =====
+    // Último evento comemorável: vai junto no estado da nuvem para os outros celulares comemorarem.
+    // Formato: { ts, eventos: [{ tipo: 'gol'|'vitoria'|'empate', titulo, sub, cor }] }
+    let ultimoEvento = null;
+    let ultimoEventoVisto = 0;   // ts do último evento já comemorado/registrado neste aparelho
+
     // ===================================================================
     // ===== NUVEM (Supabase): dados compartilhados entre todos =========
     // ===================================================================
     const SUPABASE_URL = 'https://szzutoiqvidchukkdaxu.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_Bxf06-PWIJ5cFNw1rI8G1w_0EV7iAjh';
     const PELADA_ID = 1;
-    const STORAGE_KEY = 'futsalcma_estado';
+    // ?offline na URL: não conecta na nuvem e usa outro armazenamento local
+    // (para testar no navegador sem mexer na pelada real, que é compartilhada)
+    const MODO_OFFLINE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('offline');
+    const STORAGE_KEY = MODO_OFFLINE ? 'futsalcma_estado_teste' : 'futsalcma_estado';
 
     let sb = null;              // cliente Supabase
     let sincronizando = false;  // true enquanto aplicamos algo vindo da nuvem (evita loop)
@@ -709,7 +788,7 @@
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
         golsA, golsB, mensalistas,
-        golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas,
+        golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas, ultimoEvento,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
     }
@@ -731,6 +810,7 @@
       derrotasJogadores = estado.derrotasJogadores || {};
       coresTimes = estado.coresTimes || {};
       estrelas = estado.estrelas || {};
+      ultimoEvento = estado.ultimoEvento || null;
       modoJogo = estado.modoJogo === '10min' ? '10min' : '7e2';
 
       // Cronômetro compartilhado
@@ -750,6 +830,122 @@
       atualizarMensalistasUI();
       atualizarRelatorioUI();
       sincronizarTimerLocal();
+    }
+
+    // ===== MOTOR DE COMEMORAÇÃO (overlay em tela cheia) =====
+    const DURACAO_CELEBRACAO = 1600;
+    let filaCelebracao = [];      // comemorações esperando a vez (não se sobrepõem)
+    let celebrando = false;
+    let celebracaoTimer = null;
+    let ultimoToque = null;       // onde o dedo tocou por último (a comemoração local nasce dali)
+
+    document.addEventListener('pointerdown', (e) => {
+      ultimoToque = { x: e.clientX, y: e.clientY, t: Date.now() };
+    }, { passive: true });
+
+    function movimentoReduzido() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    function vibrar(padrao) {
+      try { if (navigator.vibrate) navigator.vibrate(padrao); } catch (e) {}
+    }
+
+    // Texto preto em fundo claro, branco em fundo escuro
+    function corDoTexto(hex) {
+      const h = String(hex || '').replace('#', '');
+      if (h.length !== 6) return '#000';
+      const [r, g, b] = [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16));
+      return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#000' : '#fff';
+    }
+
+    function gerarParticulas(n) {
+      let html = '';
+      for (let i = 0; i < n; i++) {
+        const ang = (Math.PI * 2 * i) / n + Math.random() * 0.5;
+        const dist = 120 + Math.random() * 90;
+        const x = Math.round(Math.cos(ang) * dist), y = Math.round(Math.sin(ang) * dist);
+        html += `<i style="--x:${x}px;--y:${y}px;--r:${Math.round(Math.random() * 360)}deg"></i>`;
+      }
+      return html;
+    }
+
+    function celebrar(evento) {
+      if (!evento) return;
+      filaCelebracao.push(evento);
+      if (!celebrando) proximaCelebracao();
+    }
+
+    function proximaCelebracao() {
+      const el = document.getElementById('celebracao');
+      const pagina = document.getElementById('mainContainer');
+      const ev = filaCelebracao.shift();
+      if (!ev) {
+        celebrando = false;
+        el.className = 'celebracao';
+        if (pagina) pagina.classList.remove('tremendo');
+        return;
+      }
+      celebrando = true;
+      const reduzido = movimentoReduzido();
+      const cor = ev.cor || '#c6ff00';
+      const toqueRecente = ev._local && ultimoToque && (Date.now() - ultimoToque.t) < 2000;
+
+      document.getElementById('celTitulo').innerText = ev.titulo || '';
+      document.getElementById('celSub').innerText = ev.sub || '';
+      document.getElementById('celParticulas').innerHTML =
+        (reduzido || ev.tipo === 'empate') ? '' : gerarParticulas(10);
+      el.style.setProperty('--cel-cor', cor);
+      el.style.setProperty('--cel-tinta', corDoTexto(cor));
+      el.style.setProperty('--cel-origem', toqueRecente ? `${ultimoToque.x}px ${ultimoToque.y}px` : '50% 50%');
+
+      el.className = 'celebracao';
+      void el.offsetWidth; // força o navegador a recomeçar as animações
+      el.className = `celebracao ativa cel-${ev.tipo}${reduzido ? ' reduzido' : ''}`;
+
+      if (pagina && !reduzido && ev.tipo !== 'empate') {
+        pagina.classList.remove('tremendo');
+        void pagina.offsetWidth;
+        pagina.classList.add('tremendo');
+      }
+      vibrar(ev.tipo === 'vitoria' ? [80, 50, 80, 50, 160] : ev.tipo === 'gol' ? [60, 40, 60] : [40]);
+
+      clearTimeout(celebracaoTimer);
+      celebracaoTimer = setTimeout(proximaCelebracao, reduzido ? 1200 : DURACAO_CELEBRACAO);
+    }
+
+    // Um toque na comemoração pula para a próxima (ou fecha)
+    function pularCelebracao() {
+      clearTimeout(celebracaoTimer);
+      proximaCelebracao();
+    }
+
+    // Ação feita AQUI: grava o evento (vai pra nuvem no próximo salvarEstado) e comemora na hora.
+    // O ts sempre avança, mesmo se o relógio deste celular estiver atrasado em relação aos outros.
+    function registrarEventos(lista) {
+      const ts = Math.max(Date.now(), ultimoEventoVisto + 1);
+      ultimoEvento = { ts, eventos: lista };
+      ultimoEventoVisto = ts;
+      lista.forEach(e => celebrar({ ...e, _local: true }));
+    }
+
+    // Ao abrir a página: só registra o evento que já existe (não comemora coisa velha)
+    function marcarEventoVisto(ev) {
+      if (ev && typeof ev.ts === 'number') ultimoEventoVisto = Math.max(ultimoEventoVisto, ev.ts);
+    }
+
+    // Chegou estado de outro celular: comemora só se o evento é mais novo que o último visto
+    // (o eco da própria ação e o "desfazer", que traz um evento antigo, não comemoram)
+    function comemorarSeNovo(ev) {
+      if (!ev || typeof ev.ts !== 'number' || ev.ts <= ultimoEventoVisto) return;
+      ultimoEventoVisto = ev.ts;
+      (Array.isArray(ev.eventos) ? ev.eventos : []).forEach(e => celebrar(e));
+    }
+
+    function receberEstadoRemoto(estado) {
+      if (!estado) return;
+      sincronizando = true; aplicarEstado(estado); sincronizando = false;
+      comemorarSeNovo(estado.ultimoEvento);
     }
 
     // ===== DESFAZER (Ctrl+Z / botão) =====
@@ -834,8 +1030,14 @@
         const local = JSON.parse(localStorage.getItem(STORAGE_KEY));
         if (local && Array.isArray(local.times) && local.times.length) {
           sincronizando = true; aplicarEstado(local); sincronizando = false;
+          marcarEventoVisto(local.ultimoEvento);
         }
       } catch (e) {}
+
+      if (MODO_OFFLINE) {
+        atualizarSyncBadge('erro', 'Modo teste (offline) — nada vai para a nuvem');
+        return;
+      }
 
       if (!window.supabase) {
         atualizarSyncBadge('erro', 'Nuvem indisponível — usando só este aparelho');
@@ -850,6 +1052,7 @@
           .select('estado').eq('id', PELADA_ID).single();
         if (!error && data && data.estado) {
           sincronizando = true; aplicarEstado(data.estado); sincronizando = false;
+          marcarEventoVisto(data.estado.ultimoEvento);
           atualizarSyncBadge('ok', 'Dados sincronizados na nuvem ✓');
         } else {
           atualizarSyncBadge('ok', 'Conectado à nuvem ✓');
@@ -859,15 +1062,13 @@
         atualizarSyncBadge('erro', 'Sem conexão — usando só este aparelho');
       }
 
-      // 3) Escuta mudanças em tempo real (outro aparelho alterou -> atualiza aqui)
+      // 3) Escuta mudanças em tempo real (outro aparelho alterou -> atualiza aqui e comemora se for o caso)
       try {
         sb.channel('pelada-mudancas')
           .on('postgres_changes',
             { event: 'UPDATE', schema: 'public', table: 'pelada', filter: 'id=eq.' + PELADA_ID },
             (payload) => {
-              if (payload && payload.new && payload.new.estado) {
-                sincronizando = true; aplicarEstado(payload.new.estado); sincronizando = false;
-              }
+              if (payload && payload.new && payload.new.estado) receberEstadoRemoto(payload.new.estado);
             })
           .subscribe();
       } catch (e) { console.warn(e); }
@@ -1851,19 +2052,15 @@
       if (times.length < 2) return;
       snapshotEstado();
       if (qualTime === 0) golsA++; else golsB++;
-      atualizarTela();
+      const evGol = { tipo: 'gol', titulo: 'GOL!', sub: `${nomeTime(times[qualTime].id)} · ${golsA} × ${golsB}`, cor: '#c6ff00' };
 
       // 2 gols encerra a partida automaticamente — SÓ no Modo A (7 min + 2 gols).
       // No Modo B (10 min corridos), os gols só contam para o relatório e não encerram.
       if (modoJogo === '7e2' && (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER)) {
-        const vencedorIndex = golsA >= GOLS_PARA_VENCER ? 0 : 1;
-        const placar = `${Math.max(golsA, golsB)} x ${Math.min(golsA, golsB)}`;
-        const idVencedor = times[vencedorIndex].id;
-        setTimeout(() => {
-          alert(`⚽ Fim de jogo! ${nomeTime(idVencedor)} venceu por ${placar}.`);
-          fimDeJogo(vencedorIndex);
-        }, 60);
+        fimDeJogo(golsA >= GOLS_PARA_VENCER ? 0 : 1, [evGol]);
       } else {
+        registrarEventos([evGol]);
+        atualizarTela();
         salvarEstado();
       }
     }
@@ -2060,13 +2257,16 @@
       }
     }
 
-    function fimDeJogo(indexVencedor) {
+    // eventosAntes: comemorações que vêm antes do "VENCEU" (ex.: o gol que decidiu a partida)
+    function fimDeJogo(indexVencedor, eventosAntes = []) {
       if (times.length < 2) return;
       snapshotEstado();
 
       let indexPerdedor = indexVencedor === 0 ? 1 : 0;
       let vencedor = times[indexVencedor];
       let perdedor = times[indexPerdedor];
+      const golsVenc = indexVencedor === 0 ? golsA : golsB;
+      const golsPerd = indexVencedor === 0 ? golsB : golsA;
 
       vitoriasTimes[vencedor.id] = (vitoriasTimes[vencedor.id] || 0) + 1;
       vencedor.jogadores.forEach(jogador => {
@@ -2087,8 +2287,16 @@
       vencedor.partidasSeguidas = (vencedor.partidasSeguidas || 0) + 1;
       perdedor.partidasSeguidas = 0;
 
+      const corVenc = CORES[corDoTime(vencedor.id)];
+      const evVitoria = {
+        tipo: 'vitoria',
+        titulo: `${corVenc.nome.toUpperCase()} VENCEU`,
+        sub: `${nomeTime(vencedor.id)} · ${golsVenc} × ${golsPerd}`,
+        cor: corVenc.dot
+      };
+
       if (vencedor.partidasSeguidas >= 3) {
-        alert(`🏆 ${nomeTime(vencedor.id)} completou 3 vitórias seguidas! Entram 2 times novos da fila.`);
+        evVitoria.sub = '3 vitórias seguidas · entram 2 times novos';
         vencedor.partidasSeguidas = 0;
 
         let tA = times.shift();
@@ -2102,6 +2310,7 @@
       }
 
       golsA = 0; golsB = 0; // zera o placar para a próxima partida
+      registrarEventos([...eventosAntes, evVitoria]);
       resetTimer();
       atualizarTela();
       salvarEstado();
@@ -2135,6 +2344,7 @@
       const idA = times[0].id, idB = times[1].id;
       golsTime[idA] = (golsTime[idA] || 0) + golsA;
       golsTime[idB] = (golsTime[idB] || 0) + golsB;
+      const evEmpate = { tipo: 'empate', titulo: 'EMPATE', sub: `${nomeTime(idA)} ${golsA} × ${golsB} ${nomeTime(idB)}`, cor: '#f5f5f5' };
 
       // Empate: os dois times saem do campo (a sequência de vitórias seguidas zera).
       let tA = times.shift();
@@ -2149,6 +2359,7 @@
       times.push(atras);
 
       golsA = 0; golsB = 0; // zera o placar para a próxima partida
+      registrarEventos([evEmpate]);
       resetTimer();
       atualizarTela();
       salvarEstado();
