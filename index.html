@@ -223,6 +223,8 @@
     .nivel-nome { font-size: 0.9rem; }
     .nivel-badge { color: var(--ac); font-size: 0.72rem; font-weight: 700; margin-left: 4px; }
     .nivel-estrelas { display: flex; }
+    .nivel-acoes { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .nivel-sem-remover { width: 34px; flex-shrink: 0; }
     .estrela-btn { padding: 2px 3px; border: none; background: transparent; font-size: 1.3rem; line-height: 1; color: var(--ln2); }
     .estrela-btn.on { color: var(--ac); }
     .estrela-btn.pop { animation: pop 380ms var(--mola); }
@@ -1292,8 +1294,26 @@
         for (let i = 1; i <= 5; i++) {
           estrelasHtml += `<button class="estrela-btn ${i <= e ? 'on' : ''}" onclick="definirEstrela('${seguro}', ${i})">★</button>`;
         }
-        return `<div class="nivel-item" data-nome="${n}"><span class="nivel-nome">${n} <span class="nivel-badge">${e}★</span></span><div class="nivel-estrelas">${estrelasHtml}</div></div>`;
+        // ✕ só para quem não está na pelada de hoje (o sorteio ainda precisa de quem joga)
+        const remover = jogaHoje(n)
+          ? '<span class="nivel-sem-remover"></span>'
+          : `<button class="btn-icone btn-sair" aria-label="Remover ${n} dos níveis" onclick="removerJogadorNivel('${seguro}')">${icone('x', 14)}</button>`;
+        return `<div class="nivel-item" data-nome="${n}"><span class="nivel-nome">${n} <span class="nivel-badge">${e}★</span></span><div class="nivel-acoes"><div class="nivel-estrelas">${estrelasHtml}</div>${remover}</div></div>`;
       }).join('');
+    }
+
+    // Está na pelada de hoje: num time/fila ou na lista de pagantes
+    function jogaHoje(nome) {
+      return pagamentos[nome] !== undefined || times.some(t => t.jogadores.includes(nome));
+    }
+
+    function removerJogadorNivel(nome) {
+      if (jogaHoje(nome)) return;
+      if (!confirm(`Remover ${nome} dos níveis?`)) return;
+      snapshotEstado();
+      delete estrelas[nome];
+      atualizarNiveisUI();
+      salvarEstado();
     }
 
     function definirEstrela(nome, n) {
