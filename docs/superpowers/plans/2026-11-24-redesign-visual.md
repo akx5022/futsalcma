@@ -48,7 +48,7 @@ Abrir **http://localhost:5173/index.html?offline**. O badge de sync deve dizer "
 
 ---
 
-### Tarefa 1: Testes, modo offline, motor de comemoração e eventos sincronizados
+### Task 1 (Tarefa 1): Testes, modo offline, motor de comemoração e eventos sincronizados
 
 **Files:**
 - Create: `tests/harness.js`
@@ -752,7 +752,7 @@ EOF
 
 ---
 
-### Tarefa 2: Ícones inline (remove o Lucide)
+### Task 2 (Tarefa 2): Ícones inline (remove o Lucide)
 
 **Files:**
 - Create: `tests/icones.test.js`
@@ -881,7 +881,7 @@ EOF
 
 ---
 
-### Tarefa 3: Gol por jogador e artilharia
+### Task 3 (Tarefa 3): Gol por jogador e artilharia
 
 **Files:**
 - Create: `tests/gols.test.js`
@@ -1206,7 +1206,7 @@ EOF
 
 ---
 
-### Tarefa 4: Novo visual — CSS completo, HTML estático, tela principal, tela cheia, gaveta e modais
+### Task 4 (Tarefa 4): Novo visual — CSS completo, HTML estático, tela principal, tela cheia, gaveta e modais
 
 **Files:**
 - Create: `tests/tela.test.js`
@@ -2106,7 +2106,7 @@ EOF
 
 ---
 
-### Tarefa 5: Novo visual — conteúdo do menu (pagantes, relatório, histórico, cobrança, níveis)
+### Task 5 (Tarefa 5): Novo visual — conteúdo do menu (pagantes, relatório, histórico, cobrança, níveis)
 
 **Files:**
 - Create: `tests/menu.test.js`
@@ -2448,7 +2448,7 @@ EOF
 
 ---
 
-### Tarefa 6: Motion funcional (entradas, placar, selo, tempo esgotado, sync)
+### Task 6 (Tarefa 6): Motion funcional (entradas, placar, selo, tempo esgotado, sync)
 
 **Files:**
 - Create: `tests/motion.test.js`
@@ -2652,7 +2652,7 @@ EOF
 
 ---
 
-### Tarefa 7: Verificação final e publicação
+### Task 7 (Tarefa 7): Verificação final e publicação
 
 **Files:**
 - Nenhum arquivo novo. Corrige `index.html` se o roteiro achar problema.
