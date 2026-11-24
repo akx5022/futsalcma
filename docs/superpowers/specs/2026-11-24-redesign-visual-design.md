@@ -62,7 +62,7 @@ As 5 cores de time (azul, laranja, verde, vermelho, cinza) continuam como estão
 
 ### Ícones
 
-Um conjunto pequeno de ícones em SVG inline, com o traçado copiado do Lucide (licença ISC), servido por uma função `icone(nome)`. A lista inclui: menu, undo, x, pencil, play, pause, rotate-ccw, maximize, minimize, users, trophy, calendar, receipt, qr-code, wallet, star, alert-triangle, plus e copy. O `<script>` do Lucide via unpkg e a chamada `lucide.createIcons()` **são removidos**.
+Um conjunto pequeno de ícones em SVG inline, com o traçado baseado no Lucide (licença ISC), servido por uma função `icone(nome)`. A lista tem só os ícones usados: menu, undo, x, pencil, play, pause, rotate-ccw, maximize, minimize, alert-triangle, copy, trash, message, shuffle e bell-off. As abas do menu são só texto, e as estrelas usam o caractere ★. O `<script>` do Lucide via unpkg e a chamada `lucide.createIcons()` **são removidos**.
 
 Os emojis saem dos botões e títulos da interface. **Continuam** nas mensagens de WhatsApp e no ⚽ do botão e do selo de gol, que é intencional.
 
@@ -102,7 +102,7 @@ Com `prefers-reduced-motion: reduce`: as comemorações viram só um fade do ove
 
 - `golsJogadores: { [nome]: number }`: total de gols de cada jogador na pelada.
 - `golsPartida: { [nome]: number }`: gols de cada jogador na partida atual.
-- `ultimoEvento: { ts: number, tipo: 'gol'|'vitoria'|'empate', titulo: string, sub: string, cor: string } | null`.
+- `ultimoEvento: { ts: number, eventos: Array<{ tipo: 'gol'|'vitoria'|'empate', titulo: string, sub: string, cor: string }> } | null`. É uma lista porque uma única ação pode gerar duas comemorações (o gol que encerra a partida gera "GOL!" e depois "VENCEU").
 
 Na leitura, estados antigos sem esses campos recebem `{}` / `null`.
 
@@ -123,10 +123,10 @@ Novo cartão "Artilheiro da pelada" (nome + n gols) e nova lista "Artilharia" (t
 
 ## 4. Comemoração sincronizada
 
-- Ações locais de gol, vitória e empate gravam `ultimoEvento` com `ts = Date.now()` antes de `salvarEstado()`, e chamam `celebrar()` na hora.
+- Ações locais de gol, vitória e empate chamam `registrarEventos(lista)`. Essa função grava `ultimoEvento` com `ts = Math.max(Date.now(), ultimoEventoVisto + 1)`, pra o ts sempre avançar mesmo com o relógio do celular atrasado, e chama `celebrar()` na hora para cada item. Isso acontece antes do `salvarEstado()`.
 - Variável local `ultimoEventoVisto` (ts).
   - Ao carregar (localStorage e o primeiro `select` da nuvem): `ultimoEventoVisto = estado.ultimoEvento?.ts || 0`. **Não comemora.**
-  - No handler de tempo real: se `novo.ultimoEvento && novo.ultimoEvento.ts > ultimoEventoVisto`, atualiza `ultimoEventoVisto` e chama `celebrar(novo.ultimoEvento)`.
+  - No handler de tempo real, via `receberEstadoRemoto(estado)`: se `estado.ultimoEvento.ts > ultimoEventoVisto`, atualiza `ultimoEventoVisto` e chama `celebrar()` para cada item de `eventos`.
   - Na ação local, `ultimoEventoVisto` recebe o ts gerado, pra não comemorar duas vezes quando o eco da nuvem chegar.
 - O Desfazer restaura um `ultimoEvento` mais antigo (ts menor), então não dispara comemoração.
 
@@ -145,10 +145,14 @@ Novo cartão "Artilheiro da pelada" (nome + n gols) e nova lista "Artilharia" (t
 
 ## Verificação
 
-Não há testes automatizados. A verificação será:
+O projeto não tinha testes automatizados. Esta entrega cria `tests/`, que carrega o `<script>` do `index.html` num contexto `vm` do Node com um DOM falso e testa a lógica (gols, eventos, comemoração sincronizada). Para rodar: `node --test "tests/**/*.test.js"`. Não precisa instalar nada.
 
-1. Checagem de sintaxe do `<script>` com Node (`new Function`).
+**Modo de teste `?offline`:** abrir `index.html?offline` não conecta no Supabase e usa outra chave no localStorage (`futsalcma_estado_teste`). Isso permite testar no navegador sem mexer na pelada real, que todos compartilham.
+
+A verificação será:
+
+1. `node --test` passando, e a checagem de sintaxe do `<script>`.
 2. Rodar o app no navegador e seguir o roteiro: cadastrar e sortear, marcar gols em jogadores (selo, placar, comemoração), vencer por 2 gols no modo 7e2 (GOL → VENCEU, fila gira), vencer no tempo, 3 vitórias seguidas, empate (modal → EMPATE), Desfazer depois de um gol (sem comemoração, placar e artilharia voltam), editar um jogador com gols, sair, adicionar jogador (entrada animada), menu e todas as abas, Relatório com artilharia, tela cheia no último minuto e Níveis (5 toques no subtítulo).
-3. Duas abas abertas ao mesmo tempo: o gol marcado em uma comemora na outra. Recarregar a página não comemora.
+3. Comemoração remota: no modo `?offline`, simular a chegada de um estado pelo console com `receberEstadoRemoto(...)`. O teste real com duas abas conectadas na nuvem só acontece **com autorização do usuário**, fora do horário de pelada, e com o estado salvo antes e restaurado depois. Recarregar a página não comemora.
 4. Abrir um estado antigo (sem `golsJogadores` e afins) sem erros.
 5. Emular `prefers-reduced-motion` no DevTools e conferir a versão reduzida.
