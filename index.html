@@ -297,12 +297,28 @@
     .celebracao.reduzido, .celebracao.reduzido .cel-titulo, .celebracao.reduzido .cel-sub { animation: celFade 1.2s ease both; }
     @keyframes celFade { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
 
+    /* ===================== MOTION FUNCIONAL ===================== */
+    .entrar { animation: entrar 420ms var(--suave) both; }
+    @keyframes entrar { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    .time.destaque::before { animation: brilhoFaixa 900ms ease both; }
+    @keyframes brilhoFaixa { 0% { width: 3px; } 35% { width: 100%; opacity: .22; } 100% { width: 3px; opacity: 1; } }
+    .placar-num.rolar { animation: rolar 520ms var(--mola) both; }
+    @keyframes rolar { from { transform: translateY(65%); opacity: 0; } to { transform: none; opacity: 1; } }
+    .selo-gol.pop { animation: popSelo 480ms var(--mola) both; }
+    @keyframes popSelo { 0% { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); } }
+    body.tempo-esgotado::after { content: ''; position: fixed; inset: 0; z-index: 15000; pointer-events: none; box-shadow: inset 0 0 0 6px var(--dg), inset 0 0 140px rgba(255,77,77,.45); animation: piscar 1s ease-in-out infinite; }
+    @keyframes piscar { 50% { opacity: .2; } }
+    .sync-badge.enviando .dot { background: var(--ac); animation: pulsarDot .8s ease-in-out infinite; }
+    @keyframes pulsarDot { 50% { transform: scale(1.8); opacity: .5; } }
+
     /* ===================== MOVIMENTO REDUZIDO ===================== */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
       .celebracao.ativa, .celebracao.ativa .cel-titulo, .celebracao.ativa .cel-sub { animation: celFade 1.2s ease both !important; }
       .cel-particulas { display: none; }
       #mainContainer.tremendo { animation: none !important; }
+      .entrar { animation: fadeIn 200ms ease both !important; }
+      .placar-num.rolar, .selo-gol.pop, .time.destaque::before, body.tempo-esgotado::after { animation: none !important; }
     }
   </style>
 </head>
@@ -819,6 +835,8 @@
 
     async function enviarParaNuvem() {
       if (!sb) return;
+      const badge = document.getElementById('syncBadge');
+      if (badge) badge.classList.add('enviando'); // bolinha pulsa enquanto envia (atualizarSyncBadge limpa)
       try {
         const { error } = await sb.from('pelada')
           .update({ estado: coletarEstado() })
@@ -1446,6 +1464,7 @@
 
     function tocarAlarme() {
       pararAlarme();
+      document.body.classList.add('tempo-esgotado'); // tela pisca em vermelho junto com a sirene
       const audio = document.getElementById('audioSirene');
       document.getElementById('btnStopAlarm').style.display = 'block';
 
@@ -1483,6 +1502,7 @@
       if (audio) { audio.pause(); audio.currentTime = 0; }
       if ('speechSynthesis' in window) { window.speechSynthesis.cancel(); }
       if (alarmeTimeout) { clearTimeout(alarmeTimeout); alarmeTimeout = null; }
+      document.body.classList.remove('tempo-esgotado');
       document.getElementById('btnStopAlarm').style.display = 'none';
     }
 
@@ -1893,6 +1913,76 @@
       }
     }
 
+    // ===== MOTION FUNCIONAL =====
+    // A tela é redesenhada inteira a cada ação, então só animamos o que MUDOU desde a última vez.
+    let chavesVistas = null;        // data-chave desenhadas na última vez (null = primeira renderização)
+    let quadraAnterior = null;      // ids dos 2 times que estavam em quadra
+    let placarAnterior = null;      // { ids: 'a-b', a, b }
+    let golsPartidaAnterior = null; // cópia de golsPartida
+
+    // Na primeira renderização só os times entram; depois, só o que não existia antes
+    function chavesNovas(anteriores, atuais) {
+      if (anteriores === null) return atuais.filter(c => c.startsWith('t:'));
+      return atuais.filter(c => !anteriores.has(c));
+    }
+
+    function reiniciarAnimacao(el, classe) {
+      el.classList.remove(classe);
+      void el.offsetWidth;
+      el.classList.add(classe);
+    }
+
+    function animarMudancas() {
+      const raiz = document.getElementById('mainContainer');
+      if (!raiz) return;
+
+      // 1) Itens novos entram deslizando (sem animar o filho de quem já está entrando)
+      const elementos = Array.from(raiz.querySelectorAll('[data-chave]'));
+      const atuais = elementos.map(el => el.dataset.chave);
+      const novas = new Set(chavesNovas(chavesVistas, atuais));
+      let atraso = 0;
+      elementos.forEach(el => {
+        if (!novas.has(el.dataset.chave)) return;
+        if (el.parentElement && el.parentElement.closest('.entrar')) return;
+        el.style.animationDelay = `${Math.min(atraso, 400)}ms`;
+        el.classList.add('entrar');
+        atraso += 40;
+      });
+      chavesVistas = new Set(atuais);
+
+      // 2) Time que acabou de entrar em quadra: brilho na faixa lateral
+      const quadraAgora = times.slice(0, 2).map(t => t.id);
+      if (quadraAnterior !== null) {
+        quadraAgora.forEach(id => {
+          if (quadraAnterior.includes(id)) return;
+          const card = raiz.querySelector(`#timesJogando [data-chave="t:${id}"]`);
+          if (card) card.classList.add('entrar', 'destaque');
+        });
+      }
+      quadraAnterior = quadraAgora;
+
+      // 3) Placar: o número que subiu rola de baixo pra cima
+      if (times.length >= 2) {
+        const ids = `${times[0].id}-${times[1].id}`;
+        if (placarAnterior && placarAnterior.ids === ids) {
+          const a = document.getElementById('placarA'), b = document.getElementById('placarB');
+          if (a && golsA > placarAnterior.a) reiniciarAnimacao(a, 'rolar');
+          if (b && golsB > placarAnterior.b) reiniciarAnimacao(b, 'rolar');
+        }
+        placarAnterior = { ids, a: golsA, b: golsB };
+      }
+
+      // 4) Selo de gol do jogador: "pop" quando o número sobe
+      if (golsPartidaAnterior !== null) {
+        raiz.querySelectorAll('.jogador').forEach(li => {
+          const nome = (li.dataset.chave || '').slice(2);
+          const selo = li.querySelector('.selo-gol');
+          if (selo && (golsPartida[nome] || 0) > (golsPartidaAnterior[nome] || 0)) selo.classList.add('pop');
+        });
+      }
+      golsPartidaAnterior = { ...golsPartida };
+    }
+
     function atualizarTela() {
       recomporTimes();
       const areaJogo = document.getElementById('timesJogando');
@@ -1940,6 +2030,7 @@
 
       atualizarAvisoLotacao();
       atualizarSeletorModo();
+      animarMudancas();
     }
 
     function renderListaJogadores(indexTime) {
