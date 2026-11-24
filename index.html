@@ -575,7 +575,8 @@
     // Nível dos jogadores (NOME -> 1..5 estrelas). Persiste entre peladas (como os mensalistas).
     let estrelas = {};
 
-    // Modo do jogo: '7e2' = 7 min OU 2 gols | '10min' = 10 min corridos (2 gols não encerram)
+    // Modo do jogo: '7e2' = 7 min OU 2 gols | '10min' = 10 min OU 2 gols
+    // (o nome interno '10min' foi mantido para não quebrar peladas já salvas)
     let modoJogo = '7e2';
     function duracaoJogoSeg() { return modoJogo === '10min' ? 600 : 420; }
 
@@ -1681,12 +1682,12 @@
       if (sel) {
         sel.innerHTML =
           `<button class="${modoJogo === '7e2' ? 'ativo' : ''}" onclick="definirModoJogo('7e2')">7 min · 2 gols</button>` +
-          `<button class="${modoJogo === '10min' ? 'ativo' : ''}" onclick="definirModoJogo('10min')">10 min corrido</button>`;
+          `<button class="${modoJogo === '10min' ? 'ativo' : ''}" onclick="definirModoJogo('10min')">10 min · 2 gols</button>`;
       }
       const leg = document.getElementById('modoLegenda');
       if (leg) {
         leg.innerText = modoJogo === '10min'
-          ? '10 min corridos — 2 gols não encerram (gols contam no relatório)'
+          ? '10 minutos ou 2 gols encerram a partida'
           : '7 minutos ou 2 gols encerram a partida';
       }
     }
@@ -1756,7 +1757,7 @@
       golsJogadores = {}; golsPartida = {};
       coresTimes = {};
 
-      // Padrão automático: até 12 jogadores = 10 min corridos; acima = 7 min + 2 gols
+      // Padrão automático: até 12 jogadores = 10 min + 2 gols; acima = 7 min + 2 gols
       modoJogo = (nomes.length <= 12) ? '10min' : '7e2';
 
       nomes.forEach((nome) => {
@@ -1914,8 +1915,8 @@
 
       const evGol = { tipo: 'gol', titulo: 'GOL!', sub: `${nome} · ${nomeTime(times[indexTime].id)} · ${golsA} × ${golsB}`, cor: '#c6ff00' };
 
-      // 2 gols encerra a partida automaticamente — SÓ no Modo A (7 min + 2 gols).
-      if (modoJogo === '7e2' && (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER)) {
+      // 2 gols encerra a partida automaticamente (nos dois modos: 7 min ou 10 min)
+      if (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER) {
         fimDeJogo(golsA >= GOLS_PARA_VENCER ? 0 : 1, [evGol]);
       } else {
         registrarEventos([evGol]);

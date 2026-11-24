@@ -35,12 +35,25 @@ test('2 gols no modo 7e2 encerram a partida; golsPartida zera e a artilharia fic
   assert.deepEqual(celebrados().map(e => e.tipo), ['gol', 'gol', 'vitoria']);
 });
 
-test('no modo 10min os gols não encerram a partida', () => {
+test('no modo 10 min · 2 gols, 2 gols (de jogadores diferentes) também encerram a partida', () => {
   const app = carregarApp();
   montarPartida(app.run, { modo: '10min' });
-  app.run('marcarGolJogador(0, 0); marcarGolJogador(0, 1); marcarGolJogador(0, 2)');
-  assert.equal(app.pegar('golsA'), 3);
-  assert.equal(app.pegar('vitoriasTimes[1]'), 0);
+  const celebrados = espiarCelebracoes(app.run);
+  app.run('marcarGolJogador(0, 0); marcarGolJogador(0, 1)');
+  assert.equal(app.pegar('vitoriasTimes[1]'), 1);
+  assert.equal(app.pegar('golsA'), 0);
+  assert.deepEqual(app.pegar('times.slice(0, 2).map(t => t.id)'), [1, 3]); // laranja saiu, verde entrou
+  assert.deepEqual(celebrados().map(e => e.tipo), ['gol', 'gol', 'vitoria']);
+});
+
+test('seletor de modo: "7 min · 2 gols" e "10 min · 2 gols" (sem modo corrido)', () => {
+  const app = carregarApp();
+  app.run(`modoJogo = '10min'; atualizarSeletorModo()`);
+  const sel = app.el('seletorModo').innerHTML;
+  assert.match(sel, /7 min · 2 gols/);
+  assert.match(sel, /10 min · 2 gols/);
+  assert.doesNotMatch(sel, /corrido/);
+  assert.equal(app.el('modoLegenda').innerText, '10 minutos ou 2 gols encerram a partida');
 });
 
 test('desfazer depois do gol volta placar e artilharia', () => {
