@@ -923,8 +923,8 @@
     async function carregarHistorico() {
       const c = document.getElementById('listaHistorico');
       if (!c) return;
-      if (!sb) { c.innerHTML = '<p style="color:#dc3545;">Sem conexão com a nuvem.</p>'; return; }
-      c.innerHTML = '<p style="color:#777;">Carregando...</p>';
+      if (!sb) { c.innerHTML = '<p class="vazio" style="color:var(--dg)">Sem conexão com a nuvem.</p>'; return; }
+      c.innerHTML = '<p class="vazio">Carregando...</p>';
 
       try {
         const { data, error } = await sb.from('pelada_historico')
@@ -934,13 +934,13 @@
           .limit(50);
         if (error) throw error;
         if (!data || data.length === 0) {
-          c.innerHTML = '<p style="color:#777;">Nenhuma pelada arquivada ainda. O histórico é criado quando você inicia uma nova pelada.</p>';
+          c.innerHTML = '<p class="vazio">Nenhuma pelada arquivada ainda. O histórico é criado quando você inicia uma nova pelada.</p>';
           return;
         }
         c.innerHTML = data.map(renderItemHistorico).join('');
       } catch (e) {
         console.warn(e);
-        c.innerHTML = '<p style="color:#dc3545;">Erro ao carregar o histórico.</p>';
+        c.innerHTML = '<p class="vazio" style="color:var(--dg)">Erro ao carregar o histórico.</p>';
       }
     }
 
@@ -957,20 +957,17 @@
       const tc = melhorChave(r.vitoriasTimes);
       const tg = melhorChave(r.golsTime);
       const ja = melhorChave(r.golsJogadores);
-      const campeaoJog = jc ? `${jc.chave} (${jc.valor} vit.)` : '—';
-      const campeaoTime = tc ? `${nomeTime(tc.chave)} (${tc.valor} vit.)` : '—';
-      const artilheiroTime = tg ? `${nomeTime(tg.chave)} (${tg.valor} gols)` : '—';
-      const total = (r.totalGols != null) ? r.totalGols : '—';
+      const linha = (rotulo, valor) =>
+        `<div class="ranking-item"><span style="color:var(--mu)">${rotulo}</span><strong>${valor}</strong></div>`;
       return `
-        <div class="stat-box" style="margin-bottom:12px;">
-          <div style="font-weight:bold; color:#28a745; margin-bottom:6px;">📅 ${dataFmt}</div>
-          <div class="ranking-item"><span>🥇 Jogador campeão</span><strong>${campeaoJog}</strong></div>
-          <div class="ranking-item"><span>🏆 Time campeão</span><strong>${campeaoTime}</strong></div>
-          <div class="ranking-item"><span>⚽ Artilheiro</span><strong>${ja ? `${ja.chave} (${ja.valor} gols)` : '—'}</strong></div>
-          <div class="ranking-item"><span>⚽ Time com mais gols</span><strong>${artilheiroTime}</strong></div>
-          <div class="ranking-item"><span>⚽ Total de gols</span><strong>${total}</strong></div>
-        </div>
-      `;
+        <div class="hist">
+          <div class="hist-data">${dataFmt}</div>
+          ${linha('Jogador campeão', jc ? `${jc.chave} (${jc.valor} vit.)` : '—')}
+          ${linha('Time campeão', tc ? `${nomeTime(tc.chave)} (${tc.valor} vit.)` : '—')}
+          ${linha('Artilheiro', ja ? `${ja.chave} (${ja.valor} gols)` : '—')}
+          ${linha('Time com mais gols', tg ? `${nomeTime(tg.chave)} (${tg.valor} gols)` : '—')}
+          ${linha('Total de gols', r.totalGols != null ? r.totalGols : '—')}
+        </div>`;
     }
 
     // ===== COBRANÇA (pagamentos das últimas 3 peladas) =====
@@ -979,7 +976,7 @@
     async function carregarCobranca() {
       const c = document.getElementById('conteudoCobranca');
       if (!c) return;
-      c.innerHTML = '<p style="color:#777;">Carregando...</p>';
+      c.innerHTML = '<p class="vazio">Carregando...</p>';
 
       const peladas = [];
       // Pelada atual (em andamento), se já houver pagantes
@@ -1015,7 +1012,7 @@
       cobrancaCache = peladas;
 
       if (peladas.length === 0) {
-        c.innerHTML = '<p style="color:#777;">Nenhuma pelada com pagamentos ainda. Marque os pagantes e, ao iniciar a próxima pelada, o histórico de cobrança começa a acumular.</p>';
+        c.innerHTML = '<p class="vazio">Nenhuma pelada com pagamentos ainda. Marque os pagantes e, ao iniciar a próxima pelada, o histórico de cobrança começa a acumular.</p>';
         return;
       }
       c.innerHTML = renderCobranca(peladas);
@@ -1034,21 +1031,20 @@
     function renderCobranca(peladas) {
       const { pend, ordenados, pendentes } = pendentesDe(peladas);
 
-      let html = '';
-      html += `<button style="width:100%; margin-bottom:14px; background:#25D366; color:#fff;" onclick="cobrarPendentes()">📲 Cobrar pendentes (${pendentes.length})</button>`;
+      let html = `<button class="btn-whats btn-bloco" onclick="cobrarPendentes()">${icone('message', 16)}Cobrar pendentes (${pendentes.length})</button>`;
 
       if (pendentes.length === 0) {
-        html += '<div class="stat-box" style="text-align:center;">🎉 Ninguém está pendente nas últimas peladas!</div>';
+        html += '<div class="stat"><div class="stat-valor" style="font-size:1rem">Ninguém está pendente nas últimas peladas.</div></div>';
       } else {
-        html += '<div class="stat-box"><div class="stat-title">⚠️ Pendentes</div>';
+        html += '<div class="stat"><small>Pendentes</small><ul class="ranking" style="margin-top:6px">';
         pendentes.forEach(n => {
-          html += `<div class="ranking-item"><span>${n}</span><strong style="color:var(--danger)">${pend[n]}× devendo</strong></div>`;
+          html += `<li class="ranking-item"><span>${n}</span><strong style="color:var(--dg)">${pend[n]}× devendo</strong></li>`;
         });
-        html += '</div>';
+        html += '</ul></div>';
       }
 
       // Matriz jogador × pelada
-      html += '<div style="overflow-x:auto; margin-top:6px;"><table class="cobranca-tabela"><thead><tr><th>Jogador</th>';
+      html += '<div class="tabela-wrap"><table class="cobranca-tabela"><thead><tr><th>Jogador</th>';
       peladas.forEach(p => { html += `<th>${p.arquivada ? p.data : 'Hoje'}</th>`; });
       html += '</tr></thead><tbody>';
       ordenados.forEach(n => {
@@ -1057,16 +1053,15 @@
         peladas.forEach(p => {
           const st = p.pagamentos[n];
           if (st === undefined) {
-            html += '<td class="cob-cel"><span style="color:#555;">—</span></td>';
+            html += '<td class="cob-cel"><span style="color:var(--di)">—</span></td>';
           } else {
-            const emoji = st === 'pago' ? '✅' : '❌';
-            html += `<td class="cob-cel"><button class="btn-emoji ${st === 'pago' ? 'active-pago' : 'active-devendo'}" onclick="alternarCobranca('${p.id}', '${nomeSeguro}')">${emoji}</button></td>`;
+            const pago = st === 'pago';
+            html += `<td class="cob-cel"><button class="cob-btn ${pago ? 'pago' : 'devendo'}" onclick="alternarCobranca('${p.id}', '${nomeSeguro}')">${pago ? 'Pago' : 'Deve'}</button></td>`;
           }
         });
         html += '</tr>';
       });
-      html += '</tbody></table></div>';
-      return html;
+      return html + '</tbody></table></div>';
     }
 
     async function alternarCobranca(peladaId, nome) {
@@ -1175,12 +1170,12 @@
       const c = document.getElementById('listaMensalistas');
       if (!c) return;
       if (!mensalistas.length) {
-        c.innerHTML = '<p style="color:#777; font-size:0.85rem; margin:0;">Nenhum mensalista cadastrado.</p>';
+        c.innerHTML = '<p class="vazio" style="text-align:left; margin:0;">Nenhum mensalista cadastrado.</p>';
         return;
       }
       c.innerHTML = mensalistas.map(m => {
         const seguro = String(m).replace(/'/g, "\\'");
-        return `<span class="chip-mensalista">${m}<button onclick="removerMensalista('${seguro}')">×</button></span>`;
+        return `<span class="chip">${m}<button onclick="removerMensalista('${seguro}')" aria-label="Remover ${m}">${icone('x', 14)}</button></span>`;
       }).join('');
     }
 
@@ -1239,7 +1234,7 @@
         ctrl.innerHTML =
           `<div class="niveis-linha"><span class="ctrl-label">Ordenar</span>` +
           `<button class="ord-btn ${niveisOrdem === 'nome' ? 'ativo' : ''}" onclick="ordenarNiveis('nome')">A-Z</button>` +
-          `<button class="ord-btn ${niveisOrdem === 'estrela' ? 'ativo' : ''}" onclick="ordenarNiveis('estrela')">⭐ Nível</button></div>` +
+          `<button class="ord-btn ${niveisOrdem === 'estrela' ? 'ativo' : ''}" onclick="ordenarNiveis('estrela')">Nível</button></div>` +
           `<div class="niveis-linha"><span class="ctrl-label">Filtrar</span>${chips}</div>`;
       }
 
@@ -1255,7 +1250,7 @@
       }
 
       if (!nomes.length) {
-        c.innerHTML = `<p style="color:#777; font-size:0.85rem; margin:8px 0 0;">${
+        c.innerHTML = `<p class="vazio">${
           todos.length ? 'Nenhum jogador com esse filtro.' : 'Nenhum jogador ainda. Sorteie uma pelada ou adicione nomes acima para avaliar.'
         }</p>`;
         return;
@@ -1268,7 +1263,7 @@
         for (let i = 1; i <= 5; i++) {
           estrelasHtml += `<button class="estrela-btn ${i <= e ? 'on' : ''}" onclick="definirEstrela('${seguro}', ${i})">★</button>`;
         }
-        return `<div class="nivel-item"><span class="nivel-nome">${n} <span class="nivel-badge">${e}★</span></span><div class="nivel-estrelas">${estrelasHtml}</div></div>`;
+        return `<div class="nivel-item" data-nome="${n}"><span class="nivel-nome">${n} <span class="nivel-badge">${e}★</span></span><div class="nivel-estrelas">${estrelasHtml}</div></div>`;
       }).join('');
     }
 
@@ -1276,6 +1271,12 @@
       snapshotEstado();
       estrelas[nome] = n;
       atualizarNiveisUI();
+      // A estrela tocada dá um "pulo"
+      document.querySelectorAll('.nivel-item').forEach(li => {
+        if (li.dataset.nome !== nome) return;
+        const estrela = li.querySelectorAll('.estrela-btn')[n - 1];
+        if (estrela) estrela.classList.add('pop');
+      });
       salvarEstado();
     }
 
@@ -1308,10 +1309,23 @@
       if (toquesNivel >= 5) { toquesNivel = 0; abrirNiveis(); }
     }
 
-    function alternarPagamento(nome, statusClick) {
+    // botao (opcional): o botão tocado. Com ele, só a linha muda e o toggle desliza;
+    // sem ele (ex.: vindo de outro lugar), a lista inteira é redesenhada.
+    function alternarPagamento(nome, statusClick, botao) {
+      if (pagamentos[nome] === statusClick) return;
       snapshotEstado();
       pagamentos[nome] = statusClick;
-      atualizarListaPagantesUI();
+      const toggle = botao && botao.closest ? botao.closest('.toggle-pago') : null;
+      if (toggle) {
+        toggle.classList.toggle('pago', statusClick === 'pago');
+        toggle.classList.toggle('devendo', statusClick === 'devendo');
+        const nomeEl = toggle.closest('.pagante').querySelector('.pagante-nome');
+        nomeEl.classList.toggle('pago', statusClick === 'pago');
+        nomeEl.classList.toggle('devendo', statusClick === 'devendo');
+        atualizarBotaoCobrar();
+      } else {
+        atualizarListaPagantesUI();
+      }
       salvarEstado();
     }
 
@@ -1342,132 +1356,84 @@
       window.open(url, '_blank');
     }
 
+    function atualizarBotaoCobrar() {
+      const btnCobrar = document.getElementById('btnCobrar');
+      if (!btnCobrar) return;
+      const qtdDev = Object.values(pagamentos).filter(s => s === 'devendo').length;
+      btnCobrar.innerHTML = `${icone('message', 16)}Cobrar quem falta pagar${qtdDev > 0 ? ` (${qtdDev})` : ''}`;
+    }
+
     function atualizarListaPagantesUI() {
       const container = document.getElementById('listaPagantes');
       const nomesCadastrados = Object.keys(pagamentos).sort();
-
-      // Atualiza o texto do botão de cobrança com a quantidade de devedores
-      const btnCobrar = document.getElementById('btnCobrar');
-      if (btnCobrar) {
-        const qtdDev = Object.values(pagamentos).filter(s => s === 'devendo').length;
-        btnCobrar.innerText = qtdDev > 0
-          ? `📲 Cobrar quem falta pagar (${qtdDev})`
-          : '📲 Cobrar quem falta pagar';
-      }
+      atualizarBotaoCobrar();
 
       if (nomesCadastrados.length === 0) {
-        container.innerHTML = '<p style="text-align:center; color:#888;">Nenhum jogador cadastrado ainda.</p>';
+        container.innerHTML = '<p class="vazio">Nenhum jogador cadastrado ainda.</p>';
         return;
       }
 
-      let html = '';
-      nomesCadastrados.forEach(nome => {
-        const status = pagamentos[nome];
-        let classeTexto = status === 'pago' ? 'status-pago' : 'status-devendo';
-        let classeBtnDevendo = status === 'devendo' ? 'active-devendo' : '';
-        let classeBtnPago = status === 'pago' ? 'active-pago' : '';
+      container.innerHTML = nomesCadastrados.map(nome => {
+        const status = pagamentos[nome] === 'pago' ? 'pago' : 'devendo';
         const seguro = String(nome).replace(/'/g, "\\'");
-
-        html += `
-          <div class="pagante-item">
-            <span class="${classeTexto}" style="flex:1;">${nome}</span>
-            <div class="pagante-actions">
-              <button class="btn-emoji ${classeBtnDevendo}" onclick="alternarPagamento('${seguro}', 'devendo')">❌</button>
-              <button class="btn-emoji ${classeBtnPago}" onclick="alternarPagamento('${seguro}', 'pago')">✅</button>
-              <button class="btn-emoji" style="opacity:0.55;" title="Remover da lista" onclick="removerPagante('${seguro}')">🗑️</button>
-            </div>
-          </div>
-        `;
-      });
-      container.innerHTML = html;
+        return `
+          <div class="pagante">
+            <span class="pagante-nome ${status}">${nome}</span>
+            <span class="pagante-acoes">
+              <span class="toggle-pago ${status}">
+                <button class="op-pago" onclick="alternarPagamento('${seguro}', 'pago', this)">Pago</button>
+                <button class="op-deve" onclick="alternarPagamento('${seguro}', 'devendo', this)">Deve</button>
+              </span>
+              <button class="btn-icone" title="Remover da lista" aria-label="Remover ${nome}" onclick="removerPagante('${seguro}')">${icone('trash', 15)}</button>
+            </span>
+          </div>`;
+      }).join('');
     }
 
     // ----- RELATÓRIO -----
+    function plural(n, um, varios) { return `${n} ${n === 1 ? um : varios}`; }
+
+    // Lista com barra proporcional ao maior valor
+    function renderRanking(mapa, chaves, { rotulo = n => n, perigo = false } = {}) {
+      if (!chaves.length) return '<li class="vazio">Sem dados</li>';
+      const max = Math.max(1, ...chaves.map(k => mapa[k] || 0));
+      return chaves.map(k => `
+        <li class="ranking-item">
+          <span class="ranking-nome">${rotulo(k)}</span>
+          <span class="ranking-barra${perigo ? ' perigo' : ''}"><i style="width:${Math.round(((mapa[k] || 0) / max) * 100)}%"></i></span>
+          <span class="ranking-valor">${mapa[k] || 0}</span>
+        </li>`).join('');
+    }
+
     function atualizarRelatorioUI() {
-      const topTimeElement = document.getElementById('topTime');
-      const listTimesElement = document.getElementById('rankingTimesList');
+      const timesVit = ordenarPorValor(vitoriasTimes);
+      document.getElementById('topTime').innerHTML = timesVit.length
+        ? `${nomeTime(timesVit[0])} <em>· ${plural(vitoriasTimes[timesVit[0]], 'vitória', 'vitórias')}</em>`
+        : 'Nenhuma partida jogada';
+      document.getElementById('rankingTimesList').innerHTML = renderRanking(vitoriasTimes, timesVit, { rotulo: nomeTime });
 
-      let timesOrdenados = Object.keys(vitoriasTimes).sort((a, b) => vitoriasTimes[b] - vitoriasTimes[a]);
+      const jogVit = ordenarPorValor(vitoriasJogadores);
+      document.getElementById('topJogador').innerHTML = jogVit.length
+        ? `${jogVit[0]} <em>· ${plural(vitoriasJogadores[jogVit[0]], 'vitória', 'vitórias')}</em>`
+        : 'Nenhum jogador pontuou';
+      document.getElementById('rankingJogadoresList').innerHTML = renderRanking(vitoriasJogadores, jogVit);
 
-      if (timesOrdenados.length > 0 && vitoriasTimes[timesOrdenados[0]] > 0) {
-        let topId = timesOrdenados[0];
-        topTimeElement.innerText = `${nomeTime(topId)} (${vitoriasTimes[topId]} ${vitoriasTimes[topId] === 1 ? 'vitória' : 'vitórias'})`;
-      } else {
-        topTimeElement.innerText = "Nenhuma partida jogada";
-      }
-
-      let htmlTimes = '';
-      timesOrdenados.forEach(id => {
-        htmlTimes += `
-          <li class="ranking-item">
-            <span>${nomeTime(id)}</span>
-            <strong>${vitoriasTimes[id]} vitórias</strong>
-          </li>
-        `;
-      });
-      listTimesElement.innerHTML = htmlTimes || '<li style="color:#777;">Sem dados</li>';
-
-      const topJogadorElement = document.getElementById('topJogador');
-      const listJogadoresElement = document.getElementById('rankingJogadoresList');
-
-      let jogadoresOrdenados = Object.keys(vitoriasJogadores).sort((a, b) => vitoriasJogadores[b] - vitoriasJogadores[a]);
-
-      if (jogadoresOrdenados.length > 0 && vitoriasJogadores[jogadoresOrdenados[0]] > 0) {
-        let topNome = jogadoresOrdenados[0];
-        topJogadorElement.innerText = `${topNome} (${vitoriasJogadores[topNome]} ${vitoriasJogadores[topNome] === 1 ? 'vitória' : 'vitórias'})`;
-      } else {
-        topJogadorElement.innerText = "Nenhum jogador pontuou";
-      }
-
-      let htmlJogadores = '';
-      jogadoresOrdenados.forEach((nome, index) => {
-        let medalha = index === 0 ? '🥇 ' : (index === 1 ? '🥈 ' : (index === 2 ? '🥉 ' : ''));
-        htmlJogadores += `
-          <li class="ranking-item">
-            <span>${medalha}${nome}</span>
-            <strong>${vitoriasJogadores[nome]} vitórias</strong>
-          </li>
-        `;
-      });
-      listJogadoresElement.innerHTML = htmlJogadores || '<li style="color:#777;">Sem dados</li>';
-
-      // ----- Artilharia (gols por jogador) -----
-      const artilharia = ordenarPorValor(golsJogadores);
-      document.getElementById('topArtilheiro').innerText = artilharia.length
-        ? `${artilharia[0]} (${golsJogadores[artilharia[0]]} ${golsJogadores[artilharia[0]] === 1 ? 'gol' : 'gols'})`
+      const art = ordenarPorValor(golsJogadores);
+      document.getElementById('topArtilheiro').innerHTML = art.length
+        ? `${art[0]} <em>· ${plural(golsJogadores[art[0]], 'gol', 'gols')}</em>`
         : 'Sem gols ainda';
-      document.getElementById('rankingArtilhariaList').innerHTML = artilharia.map(n =>
-        `<li class="ranking-item"><span>${n}</span><strong>${golsJogadores[n]} ${golsJogadores[n] === 1 ? 'gol' : 'gols'}</strong></li>`
-      ).join('') || '<li style="color:#777;">Sem dados</li>';
+      document.getElementById('rankingArtilhariaList').innerHTML = renderRanking(golsJogadores, art);
 
-      // ----- Gols por time -----
-      const topGolsTimeEl = document.getElementById('topGolsTime');
-      const listGolsEl = document.getElementById('rankingGolsList');
-      let timesGolsOrd = Object.keys(golsTime).sort((a, b) => golsTime[b] - golsTime[a]);
-      if (timesGolsOrd.length > 0 && golsTime[timesGolsOrd[0]] > 0) {
-        const id = timesGolsOrd[0];
-        topGolsTimeEl.innerText = `${nomeTime(id)} (${golsTime[id]} ${golsTime[id] === 1 ? 'gol' : 'gols'})`;
-      } else {
-        topGolsTimeEl.innerText = 'Sem gols ainda';
-      }
-      listGolsEl.innerHTML = timesGolsOrd.filter(id => golsTime[id] > 0).map(id =>
-        `<li class="ranking-item"><span>${nomeTime(id)}</span><strong>${golsTime[id]} gols</strong></li>`
-      ).join('') || '<li style="color:#777;">Sem dados</li>';
+      const timesGols = ordenarPorValor(golsTime);
+      document.getElementById('topGolsTime').innerHTML = timesGols.length
+        ? `${nomeTime(timesGols[0])} <em>· ${plural(golsTime[timesGols[0]], 'gol', 'gols')}</em>`
+        : 'Sem gols ainda';
+      document.getElementById('rankingGolsList').innerHTML = renderRanking(golsTime, timesGols, { rotulo: nomeTime });
 
-      // ----- Derrotas por time -----
-      const listDerTimesEl = document.getElementById('rankingDerrotasTimesList');
-      let derTimesOrd = Object.keys(derrotasTimes).sort((a, b) => derrotasTimes[b] - derrotasTimes[a]);
-      listDerTimesEl.innerHTML = derTimesOrd.filter(id => derrotasTimes[id] > 0).map(id =>
-        `<li class="ranking-item"><span>${nomeTime(id)}</span><strong>${derrotasTimes[id]} derrotas</strong></li>`
-      ).join('') || '<li style="color:#777;">Sem dados</li>';
-
-      // ----- Jogadores que mais perderam -----
-      const listDerJogEl = document.getElementById('rankingDerrotasJogadoresList');
-      let derJogOrd = Object.keys(derrotasJogadores).sort((a, b) => derrotasJogadores[b] - derrotasJogadores[a]);
-      listDerJogEl.innerHTML = derJogOrd.filter(n => derrotasJogadores[n] > 0).map((n, i) => {
-        let medalha = i === 0 ? '😭 ' : (i === 1 ? '😢 ' : '');
-        return `<li class="ranking-item"><span>${medalha}${n}</span><strong>${derrotasJogadores[n]} derrotas</strong></li>`;
-      }).join('') || '<li style="color:#777;">Sem dados</li>';
+      document.getElementById('rankingDerrotasTimesList').innerHTML =
+        renderRanking(derrotasTimes, ordenarPorValor(derrotasTimes), { rotulo: nomeTime, perigo: true });
+      document.getElementById('rankingDerrotasJogadoresList').innerHTML =
+        renderRanking(derrotasJogadores, ordenarPorValor(derrotasJogadores), { perigo: true });
     }
 
     // --------------------------------
