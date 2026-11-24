@@ -3,421 +3,245 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#000000">
   <title>Futebol de Segunda da Sal CMA</title>
+
+  <!-- Fonte: Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
   <!-- Supabase: sincronização dos dados na nuvem (todos veem a mesma pelada) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
+    /* ===================== TOKENS ===================== */
     :root {
-      --bg: #0b0d11;
-      --bg-2: #0e1116;
-      --surface: #15191f;
-      --surface-2: #1b2028;
-      --border: rgba(255,255,255,0.08);
-      --border-2: rgba(255,255,255,0.14);
-      --text: #eef1f5;
-      --muted: #9aa3b0;
-      --brand: #22c55e;
-      --danger: #ef4444;
-      --warning: #f59e0b;
-      --info: #3b82f6;
-      --radius: 16px;
-      --shadow: 0 10px 30px rgba(0,0,0,0.45);
+      --bg: #000; --s1: #0d0d0d; --s2: #161616; --s3: #1f1f1f;
+      --ln: #222; --ln2: #2e2e2e;
+      --tx: #f5f5f5; --mu: #8a8a8a; --di: #525252;
+      --ac: #c6ff00; --ac-tinta: #000; --ac-suave: rgba(198,255,0,.12); --ac-borda: rgba(198,255,0,.3);
+      --dg: #ff4d4d; --wr: #ffb020;
+      --r-card: 20px; --r-pill: 999px; --r-ico: 11px;
+      --fonte: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --t-rapido: 160ms; --t-medio: 320ms;
+      --mola: cubic-bezier(.2,.8,.2,1.15); --suave: cubic-bezier(.2,.8,.2,1);
     }
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background:
-        radial-gradient(1100px 560px at 50% -12%, rgba(34,197,94,0.10), transparent 60%),
-        var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 12px 12px 44px;
-      -webkit-font-smoothing: antialiased;
-    }
+
+    /* ===================== BASE ===================== */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { background: var(--bg); }
+    body { font-family: var(--fonte); background: var(--bg); color: var(--tx); margin: 0; padding: 14px 14px 48px; -webkit-font-smoothing: antialiased; }
     #mainContainer { max-width: 560px; margin: 0 auto; }
+    h2, h3 { margin: 0; }
+    .ico { display: inline-block; vertical-align: middle; }
+    [data-icone] { display: inline-flex; }
+    .oculto { visibility: hidden; }
+    .texto-mu { color: var(--mu); font-size: 0.82rem; margin: 0 0 12px; line-height: 1.45; }
+    .vazio { color: var(--di); font-size: 0.85rem; text-align: center; margin: 8px 0; list-style: none; }
 
-    /* Header (barra do app) */
-    .header-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 15px 48px;
-      margin: 4px 0 6px;
-      box-shadow: var(--shadow);
-    }
-    .menu-icon {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      cursor: pointer;
-      color: var(--brand);
-      background: rgba(34,197,94,0.12);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 6px;
-      display: flex;
-    }
-    h1 {
-      color: #ffffff;
-      text-align: center;
-      font-size: 1.15rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin: 0;
-    }
-    .sub-title {
-      color: var(--muted);
-      text-align: center;
-      font-size: 0.78rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      margin: 8px 0 16px;
-      user-select: none; -webkit-user-select: none;
-    }
-    h2 {
-      font-size: 1rem;
-      font-weight: 700;
-      margin: 0 0 14px;
-      color: #ffffff;
-      text-align: center;
-      letter-spacing: -0.01em;
-    }
-    .card {
-      background: var(--surface);
-      padding: 18px;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      margin-bottom: 14px;
-      border: 1px solid var(--border);
-    }
-
-    /* Modais (Pagantes, Relatório, Pix) */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0; width: 100vw; height: 100vh;
-      background: rgba(5, 7, 10, 0.7);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      z-index: 10000;
-      padding: 16px;
-      overflow-y: auto;
-    }
-    .modal-card {
-      background: var(--surface);
-      border: 1px solid var(--border-2);
-      border-radius: 20px;
-      padding: 18px;
-      max-width: 520px;
-      margin: 24px auto;
-      box-shadow: var(--shadow);
-    }
-    .modal-header {
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;
-    }
-    .modal-header h2 { margin: 0; color: #fff; text-align: left; font-size: 1.1rem; }
-    .close-btn { background: var(--surface-2); color: var(--danger); width: 38px; height: 38px; border-radius: 50%; font-size: 1.1rem; padding: 0; line-height: 1; border: 1px solid var(--border); cursor: pointer; box-shadow: none; }
-
-    .nav-tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 16px;
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      padding: 5px;
-      border-radius: 14px;
-    }
-    .tab-btn {
-      flex: 1 1 28%;
-      min-width: 88px;
-      padding: 9px 4px;
-      background: transparent;
-      color: var(--muted);
-      border: none;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 0.78rem;
-      cursor: pointer;
-      text-align: center;
-      box-shadow: none;
-      transition: 0.15s;
-    }
-    .tab-btn.active {
-      background: linear-gradient(180deg, #26c85f, #16a34a);
-      color: #04170c;
-      box-shadow: 0 4px 12px rgba(34,197,94,0.35);
-    }
-
-    /* Estilos do Pix */
-    .pix-container {
-      text-align: center;
-      padding: 6px;
-    }
-    .pix-qr-img {
-      width: 230px;
-      height: 230px;
-      border-radius: 16px;
-      background: #fff;
-      padding: 10px;
-      margin: 12px auto;
-      display: block;
-      box-shadow: var(--shadow);
-      object-fit: contain;
-    }
-    .pix-info-box {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      margin-top: 12px;
-      text-align: left;
-    }
-    .pix-info-row {
-      margin-bottom: 10px;
-      font-size: 0.95rem;
-    }
-    .pix-info-row:last-child { margin-bottom: 0; }
-    .pix-label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; }
-    .pix-val { color: #fff; font-weight: 700; }
-
-    /* Estilos do Relatório */
-    .stat-box {
-      background: linear-gradient(180deg, var(--surface-2), var(--surface));
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 12px;
-    }
-    .stat-title {
-      font-size: 0.72rem;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: 8px;
-    }
-    .stat-value {
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: var(--brand);
-      letter-spacing: -0.01em;
-    }
-    .ranking-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .ranking-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.95rem;
-    }
-    .ranking-item:last-child { border-bottom: none; }
-
-    /* Pagantes */
-    .pagante-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 0; border-bottom: 1px solid var(--border);
-    }
-    .pagante-item:last-child { border-bottom: none; }
-    .pagante-actions { display: flex; gap: 8px; }
-
-    .btn-emoji {
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px;
-      padding: 8px 12px; font-size: 1.05rem; width: auto; cursor: pointer; transition: 0.15s; box-shadow: none;
-    }
-    .status-pago { color: var(--brand); font-weight: 700; }
-    .status-devendo { color: var(--danger); opacity: 0.95; }
-
-    .btn-emoji.active-pago { background: rgba(34,197,94,0.16); border-color: var(--brand); transform: scale(1.08); }
-    .btn-emoji.active-devendo { background: rgba(239,68,68,0.16); border-color: var(--danger); transform: scale(1.08); }
-
-    /* Tela Cheia do Cronômetro */
-    #fullscreenTimer {
-      display: none;
-      position: fixed;
-      inset: 0; width: 100vw; height: 100vh;
-      background: radial-gradient(800px 500px at 50% 18%, rgba(34,197,94,0.12), #000 62%), #000;
-      z-index: 9999;
-      flex-direction: column; justify-content: space-between; align-items: center;
-      padding: 34px 16px;
-    }
-    .fullscreen-header {
-      font-size: 0.85rem; color: #cfd4db; text-transform: uppercase; letter-spacing: 0.2em;
-    }
-    .fullscreen-display {
-      font-size: 25vw; font-weight: 800; color: var(--brand); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: -2px; margin: auto 0;
-    }
-    @media (orientation: landscape) { .fullscreen-display { font-size: 45vh; } }
-    .fullscreen-controls { display: flex; gap: 10px; width: 100%; max-width: 460px; justify-content: center; }
-
-    /* Cronômetro */
-    .timer-card { background: linear-gradient(180deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); text-align: center; padding: 16px; }
-    .timer-display { font-size: 3.2rem; font-weight: 800; color: var(--brand); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1px; margin: 8px 0; }
-    .timer-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-    .btn-timer { padding: 12px 14px; font-size: 0.9rem; border-radius: 12px; font-weight: 700; border: none; cursor: pointer; flex: 1; min-width: 100px; color: #fff; box-shadow: none; }
-    .btn-play { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; }
-    .btn-pause { background: var(--warning); color: #201400; }
-    .btn-reset { background: var(--surface-2); border: 1px solid var(--border); }
-    .btn-fullscreen { background: #0ea5b7; }
-    .btn-stop-alarm { background: var(--danger); width: 100%; margin-top: 10px; display: none; color: #fff; font-weight: 700; padding: 12px; border-radius: 12px; border: none;}
-
-    textarea, input[type="text"] {
-      width: 100%; padding: 13px 14px; background: var(--surface-2); color: #ffffff;
-      border: 1px solid var(--border); border-radius: 12px; font-size: 16px; outline: none; transition: 0.15s;
-    }
-    textarea:focus, input[type="text"]:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
-    textarea { height: 100px; margin-bottom: 12px; resize: vertical; }
+    /* ===================== BOTÕES ===================== */
     button {
-      background: linear-gradient(180deg, #26c85f, #16a34a); color: #fff; border: none; padding: 14px;
-      border-radius: 12px; cursor: pointer; width: 100%; font-size: 1rem; font-weight: 700;
+      font-family: inherit; font-size: 0.9rem; font-weight: 700; color: var(--tx);
+      background: var(--s2); border: 1px solid var(--ln); border-radius: var(--r-pill);
+      padding: 12px 16px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      transition: transform var(--t-rapido) var(--mola), background var(--t-rapido), border-color var(--t-rapido), color var(--t-rapido);
     }
-    button:active { transform: scale(0.98); filter: brightness(0.96); }
-    button.btn-danger { background: var(--danger); color: #fff; width: auto; padding: 7px 12px; font-size: 0.8rem; border-radius: 9px; }
-    .jogadores { list-style: none; padding: 0; margin: 0; }
-    .jogador { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem; }
+    button:active { transform: scale(.96); }
+    .btn-primario { background: var(--ac); border-color: var(--ac); color: var(--ac-tinta); }
+    .btn-perigo { background: transparent; border-color: rgba(255,77,77,.4); color: var(--dg); }
+    .btn-bloco { width: 100%; }
+    .btn-whats { background: #25D366; border-color: #25D366; color: #04210f; }
+    .btn-icone { width: 34px; height: 34px; padding: 0; border-radius: var(--r-ico); background: transparent; color: var(--mu); font-size: 1rem; flex-shrink: 0; }
+    .btn-icone.grande { width: 40px; height: 40px; border-radius: 13px; color: var(--tx); }
+    .btn-gol-jog { background: var(--ac); border-color: var(--ac); color: #000; }
+    .btn-sair { color: var(--dg); }
+
+    /* ===================== TOPO ===================== */
+    .topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .marca { text-align: center; font-size: 0.62rem; letter-spacing: .2em; text-transform: uppercase; color: var(--mu); line-height: 1.5; user-select: none; -webkit-user-select: none; cursor: default; }
+    .marca b { display: block; color: var(--tx); font-size: 0.85rem; letter-spacing: .06em; }
+    .desfazer { position: relative; }
+    .desfazer-qtd { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--r-pill); background: var(--ac); color: #000; font-size: 0.62rem; display: grid; place-items: center; }
+    .sync-badge { text-align: center; font-size: 0.68rem; color: var(--mu); margin: 10px 0 4px; }
+    .sync-badge .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--di); margin-right: 6px; vertical-align: middle; }
+    .sync-badge.ok .dot { background: var(--ac); box-shadow: 0 0 8px var(--ac); }
+    .sync-badge.erro .dot { background: var(--dg); }
+
+    /* ===================== SEÇÕES ===================== */
+    .rotulo { display: flex; justify-content: space-between; align-items: center; font-size: 0.64rem; letter-spacing: .18em; text-transform: uppercase; color: var(--mu); margin: 22px 0 8px; }
+    .rotulo b { color: var(--ac); font-weight: 700; }
+    .card { background: var(--s1); border: 1px solid var(--ln); border-radius: var(--r-card); padding: 16px; margin-top: 12px; }
+    .card-titulo { font-size: 1rem; font-weight: 700; margin: 0 0 4px; }
+
+    /* ===================== CAMPOS ===================== */
+    textarea, input[type="text"] {
+      width: 100%; font-family: inherit; font-size: 16px; color: var(--tx); background: var(--s2);
+      border: 1px solid var(--ln); border-radius: 16px; padding: 13px 16px; outline: none;
+      transition: border-color var(--t-rapido), box-shadow var(--t-rapido);
+    }
+    input[type="text"] { border-radius: var(--r-pill); }
+    textarea { height: 120px; resize: vertical; margin-bottom: 12px; }
+    textarea:focus, input[type="text"]:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-suave); }
+    ::placeholder { color: var(--di); }
+    .linha-add { display: flex; gap: 8px; }
+    .linha-add input { flex: 1; min-width: 0; }
+    .linha-add button { white-space: nowrap; }
+
+    /* ===================== CRONÔMETRO ===================== */
+    .timer-display { font-size: clamp(64px, 21vw, 96px); font-weight: 700; letter-spacing: -.05em; line-height: .95; font-variant-numeric: tabular-nums; transform-origin: left center; transition: color var(--t-medio); }
+    .timer-display.baixo { color: var(--dg); animation: pulsar 1s ease-in-out infinite; }
+    .progresso { height: 3px; background: var(--ln); border-radius: 2px; margin-top: 12px; overflow: hidden; }
+    .progresso i { display: block; height: 100%; background: var(--ac); border-radius: 2px; transform-origin: left; transform: scaleX(var(--p, 1)); transition: transform 1s linear, background var(--t-medio); }
+    .progresso.baixo i { background: var(--dg); }
+    .timer-botoes { display: flex; gap: 6px; margin-top: 14px; }
+    .timer-botoes button { flex: 1; padding: 12px 6px; font-size: 0.8rem; }
+    .btn-parar-sirene { display: none; width: 100%; margin-top: 10px; background: var(--dg); border-color: var(--dg); color: #fff; }
+    .segmentado { display: flex; gap: 3px; margin-top: 10px; border: 1px solid var(--ln); border-radius: var(--r-pill); padding: 3px; }
+    .segmentado button { flex: 1; border: none; background: transparent; color: var(--mu); padding: 8px 4px; font-size: 0.74rem; }
+    .segmentado button.ativo { background: var(--s3); color: var(--tx); }
+    .modo-legenda { font-size: 0.68rem; color: var(--di); text-align: center; margin-top: 8px; }
+    @keyframes pulsar { 50% { transform: scale(1.04); } }
+
+    /* ===================== PLACAR ===================== */
+    .placar { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--ln); }
+    .placar-time { font-size: 0.68rem; color: var(--mu); text-transform: uppercase; letter-spacing: .12em; display: flex; align-items: center; gap: 6px; }
+    .placar-lado:last-child .placar-time { justify-content: flex-end; }
+    .placar-num { font-size: 52px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; display: inline-block; }
+    .placar-x { color: var(--di); padding-bottom: 10px; }
+    .quadradinho { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--c, var(--mu)); flex-shrink: 0; }
+
+    /* ===================== TIMES ===================== */
+    .time { position: relative; overflow: hidden; margin-top: 12px; padding: 14px 14px 10px 17px; background: var(--s1); border: 1px solid var(--ln); border-radius: var(--r-card); }
+    .time::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c, var(--mu)); }
+    .fila-time { padding: 12px 12px 8px 15px; }
+    .time-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .time-nome { font-size: 1rem; font-weight: 700; }
+    .fila-time .time-nome { font-size: 0.9rem; }
+    .time-nome small { color: var(--mu); font-size: 0.72rem; font-weight: 500; margin-left: 6px; }
+    .selo { font-size: 0.64rem; font-weight: 700; padding: 3px 9px; border-radius: var(--r-pill); background: var(--s2); color: var(--mu); white-space: nowrap; }
+    .selo.alerta { background: var(--wr); color: #000; }
+    .cores { display: flex; gap: 7px; margin-top: 10px; }
+    .cor-bolinha { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 2px solid transparent; background: var(--c); }
+    .cor-bolinha.ativa { border-color: #fff; box-shadow: 0 0 0 2px rgba(255,255,255,.15); }
+    .jogadores { list-style: none; margin: 8px 0 0; padding: 0; }
+    .jogador { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--ln); font-size: 0.9rem; }
     .jogador:last-child { border-bottom: none; }
-    .jogador-nome { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .jogador-nome { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
     .jogador-acoes { display: flex; gap: 6px; flex-shrink: 0; }
-    button.btn-icone { width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; border-radius: 11px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #cfd4db; font-size: 1rem; }
-    button.btn-gol-jog { background: #c6ff00; border-color: #c6ff00; color: #000; }
-    button.btn-sair { color: #ff4d4d; }
-    .selo-gol { font-size: 0.72rem; font-weight: 700; color: #c6ff00; background: rgba(198,255,0,.12); border: 1px solid rgba(198,255,0,.3); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
-    button.btn-blue { background: var(--info); color: #fff; padding: 12px; font-size: 0.9rem; }
-    button.btn-warning { background: var(--warning); color: #201400; padding: 12px; font-size: 0.9rem; }
+    .selo-gol { font-size: 0.68rem; font-weight: 700; color: var(--ac); background: var(--ac-suave); border: 1px solid var(--ac-borda); padding: 2px 7px; border-radius: var(--r-pill); white-space: nowrap; display: inline-block; }
+    .aguardando { text-align: center; color: var(--mu); font-size: 0.85rem; margin: 14px 0 0; }
+    .encerrar { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; }
+    .encerrar button { padding: 12px 6px; font-size: 0.74rem; }
 
-    .game-grid { display: flex; flex-direction: column; gap: 12px; }
-    .team-box { padding: 14px; border-radius: 14px; position: relative; }
+    /* ===================== AVISOS ===================== */
+    .aviso { display: none; align-items: center; gap: 8px; margin-top: 12px; padding: 11px 14px; border-radius: 16px; font-size: 0.8rem; font-weight: 700; background: var(--wr); color: #000; }
+    .aviso.info { background: var(--s2); color: var(--tx); border: 1px solid var(--ln); }
+    .aviso.visivel { display: flex; animation: descer var(--t-medio) var(--mola) both; }
+    @keyframes descer { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
 
-    .match-badge {
-      position: absolute; top: 12px; right: 12px;
-      background: rgba(0,0,0,0.4); color: #fff;
-      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-      font-size: 0.7rem; padding: 3px 9px; border-radius: 999px; font-weight: 700;
-    }
-    .match-badge-alert {
-      background: var(--warning) !important; color: #201400 !important; animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    /* ===================== GAVETA (MENU) ===================== */
+    .sheet-fundo { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; visibility: hidden; transition: opacity var(--t-medio) ease, visibility 0s linear var(--t-medio); }
+    .sheet-fundo.aberto { opacity: 1; visibility: visible; transition: opacity var(--t-medio) ease; }
+    .sheet { position: absolute; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; max-height: 92vh; overflow-y: auto; background: var(--s1); border: 1px solid var(--ln2); border-bottom: none; border-radius: 26px 26px 0 0; padding: 10px 16px 32px; transform: translateY(100%); transition: transform 420ms var(--mola); }
+    .sheet-fundo.aberto .sheet { transform: none; }
+    .sheet-alca { width: 40px; height: 4px; border-radius: 2px; background: var(--ln2); margin: 0 auto 12px; }
+    .sheet-topo { display: flex; justify-content: space-between; align-items: center; }
+    .sheet-topo h2 { font-size: 1.35rem; letter-spacing: -.02em; }
+    .abas { position: relative; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 14px 0 16px; padding: 2px 0; }
+    .abas::-webkit-scrollbar { display: none; }
+    .aba { position: relative; z-index: 1; flex-shrink: 0; padding: 8px 14px; font-size: 0.76rem; background: transparent; color: var(--mu); transition: color var(--t-medio); }
+    .aba.ativa { color: #000; border-color: transparent; }
+    .aba-indicador { position: absolute; z-index: 0; top: 2px; left: 0; height: calc(100% - 4px); width: 0; border-radius: var(--r-pill); background: var(--tx); transition: transform var(--t-medio) var(--mola), width var(--t-medio) var(--mola); }
+    .aba-conteudo { display: none; }
+    .aba-conteudo.ativa { display: block; animation: fadeIn var(--t-medio) ease both; }
 
-    /* Cores dos Times */
-    .team-theme-1 { background: linear-gradient(180deg, #12324a, #0e2438) !important; border: 1px solid #2b6cb0 !important; }
-    .team-theme-1 h3 { color: #7cc7ff !important; margin: 0 0 8px 0; font-size: 1rem; }
-    .team-theme-2 { background: linear-gradient(180deg, #4a3113, #33220d) !important; border: 1px solid #c77d1a !important; }
-    .team-theme-2 h3 { color: #ffc06b !important; margin: 0 0 8px 0; font-size: 1rem; }
-    .team-theme-3 { background: linear-gradient(180deg, #123a26, #0d2a1b) !important; border: 1px solid #2e9e5b !important; }
-    .team-theme-3 h3 { color: #7ee2a8 !important; margin: 0 0 8px 0; font-size: 1rem; }
-    .team-theme-4 { background: linear-gradient(180deg, #4a1717, #331010) !important; border: 1px solid #c0392b !important; }
-    .team-theme-4 h3 { color: #ff8c8c !important; margin: 0 0 8px 0; font-size: 1rem; }
-    .team-theme-default { background: var(--surface-2) !important; border: 1px solid var(--border-2) !important; }
-    .team-theme-default h3 { color: #e0e0e0 !important; margin: 0 0 8px 0; font-size: 1rem; }
+    /* ===================== MODAIS (empate, níveis) ===================== */
+    .modal-fundo { position: fixed; inset: 0; z-index: 10001; background: rgba(0,0,0,.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 16px; overflow-y: auto; display: none; }
+    .modal-fundo.aberto { display: block; animation: fadeIn var(--t-medio) ease both; }
+    .modal { max-width: 520px; margin: 40px auto; background: var(--s1); border: 1px solid var(--ln2); border-radius: 24px; padding: 18px; }
+    .modal-fundo.aberto .modal { animation: crescer var(--t-medio) var(--mola) both; }
+    .modal-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .modal-topo h2 { font-size: 1.2rem; letter-spacing: -.02em; }
+    .empate-botoes { display: flex; flex-direction: column; gap: 8px; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes crescer { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
-    .player-list { list-style: none; padding: 0; margin: 0; }
-    .player-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem; }
-    .player-item:last-child { border-bottom: none; }
-    .actions-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 14px; }
-    .add-player-box { display: flex; gap: 8px; margin-top: 8px; }
-    .add-player-box input { flex: 1; }
-    .add-player-box button { width: auto; padding: 0 18px; white-space: nowrap; }
+    /* ===================== RELATÓRIO / HISTÓRICO ===================== */
+    .stat { background: var(--s2); border: 1px solid var(--ln); border-radius: var(--r-card); padding: 14px; margin-top: 10px; }
+    .stat small { display: block; font-size: 0.62rem; color: var(--mu); letter-spacing: .16em; text-transform: uppercase; }
+    .stat-valor { font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; margin-top: 6px; }
+    .stat-valor em { font-style: normal; color: var(--ac); }
+    .ranking { list-style: none; margin: 0; padding: 0; }
+    .ranking-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--ln); font-size: 0.88rem; }
+    .ranking-item:last-child { border-bottom: none; }
+    .ranking-nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%; }
+    .ranking-barra { flex: 1; height: 4px; background: var(--ln); border-radius: 2px; overflow: hidden; }
+    .ranking-barra i { display: block; height: 100%; background: var(--ac); border-radius: 2px; }
+    .ranking-barra.perigo i { background: var(--dg); }
+    .ranking-valor { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+    .hist { background: var(--s2); border: 1px solid var(--ln); border-radius: var(--r-card); padding: 14px; margin-bottom: 10px; }
+    .hist-data { font-size: 0.7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ac); font-weight: 700; margin-bottom: 4px; }
 
-    .alert-banner {
-      background: var(--warning); color: #201400; padding: 10px 12px;
-      border-radius: 12px; font-weight: 700; text-align: center;
-      font-size: 0.85rem; margin-bottom: 12px; display: none;
-    }
-
-    /* Indicador de sincronização com a nuvem */
-    .sync-badge {
-      text-align: center; font-size: 0.72rem; color: var(--muted); margin-bottom: 14px;
-    }
-    .sync-badge .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #64748b; margin-right: 6px; vertical-align: middle; }
-    .sync-badge.ok .dot { background: var(--brand); box-shadow: 0 0 8px rgba(34,197,94,0.7); }
-    .sync-badge.erro .dot { background: var(--danger); }
-
-    /* Placar de gols */
-    .gol-controle {
-      display: flex; align-items: center; gap: 8px;
-      margin: 10px 0; flex-wrap: wrap;
-    }
-    .btn-gol {
-      background: linear-gradient(180deg, #26c85f, #16a34a); color: #fff; border: none; border-radius: 12px;
-      padding: 11px 16px; font-size: 0.95rem; font-weight: 700; width: auto; cursor: pointer; box-shadow: 0 4px 12px rgba(34,197,94,0.3);
-    }
-    .btn-gol-menos {
-      background: var(--surface-2); color: #fff; border: 1px solid var(--border); border-radius: 12px;
-      padding: 11px 14px; font-size: 0.95rem; width: auto; cursor: pointer;
-    }
-    .gol-num {
-      font-weight: 800; color: #fff; font-size: 1.05rem;
-      min-width: 64px; text-align: center;
-    }
-    .placar-geral {
-      text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 800;
-      font-size: 1.5rem; color: #fff; margin: 4px 0 14px; letter-spacing: 1px;
-    }
-
-    /* Mensalistas (chips) */
-    .chip-mensalista {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
-      padding: 5px 12px; margin: 0 6px 6px 0; font-size: 0.85rem; color: #fff;
-    }
-    .chip-mensalista button {
-      background: transparent; border: none; color: #ff6b6b; width: auto;
-      padding: 0; font-size: 1.05rem; line-height: 1; cursor: pointer;
-    }
-
-    /* Seletor de cor do time (admin escolhe) */
-    .cor-seletor { display: flex; align-items: center; gap: 7px; margin: 8px 0 4px; flex-wrap: wrap; }
-    .cor-label { font-size: 0.72rem; color: rgba(255,255,255,0.75); text-transform: uppercase; letter-spacing: 0.08em; margin-right: 2px; }
-    .cor-swatch {
-      width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35);
-      padding: 0; cursor: pointer; box-shadow: none; transition: 0.12s;
-    }
-    .cor-swatch.cor-swatch-ativo { border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); transform: scale(1.12); }
-
-    /* Seletor de modo do jogo (7 min · 2 gols  /  10 min corrido) */
-    .modo-jogo { display: flex; gap: 6px; background: var(--bg-2); border: 1px solid var(--border); padding: 5px; border-radius: 12px; margin-top: 12px; }
-    .modo-btn { flex: 1; padding: 9px 6px; background: transparent; color: var(--muted); border: none; border-radius: 9px; font-weight: 700; font-size: 0.8rem; cursor: pointer; box-shadow: none; }
-    .modo-btn.ativo { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; }
-    .modo-legenda { font-size: 0.72rem; color: var(--muted); text-align: center; margin-top: 8px; }
-
-    /* Tabela de cobrança (jogador × últimas peladas) */
-    .cobranca-tabela { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    .cobranca-tabela th { color: var(--muted); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    /* ===================== PAGANTES / COBRANÇA ===================== */
+    .mensalistas { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--ln); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; font-size: 0.8rem; border: 1px solid var(--ln); border-radius: var(--r-pill); background: var(--s2); }
+    .chip button { width: 22px; height: 22px; padding: 0; border: none; background: transparent; color: var(--dg); }
+    .pagante { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--ln); font-size: 0.9rem; }
+    .pagante:last-child { border-bottom: none; }
+    .pagante-nome.devendo { color: var(--dg); }
+    .pagante-acoes { display: flex; align-items: center; gap: 6px; }
+    .toggle-pago { position: relative; display: inline-flex; border: 1px solid var(--ln); border-radius: var(--r-pill); padding: 2px; }
+    .toggle-pago button { position: relative; z-index: 1; flex: 1; min-width: 52px; border: none; background: transparent; padding: 6px 10px; font-size: 0.7rem; color: var(--di); transition: color var(--t-medio); }
+    .toggle-pago::before { content: ''; position: absolute; z-index: 0; top: 2px; bottom: 2px; left: 2px; width: calc(50% - 2px); border-radius: var(--r-pill); background: var(--ac); transition: transform var(--t-medio) var(--mola), background var(--t-medio); }
+    .toggle-pago.devendo::before { transform: translateX(100%); background: var(--dg); }
+    .toggle-pago.pago .op-pago { color: #000; }
+    .toggle-pago.devendo .op-deve { color: #fff; }
+    .tabela-wrap { overflow-x: auto; margin-top: 8px; }
+    .cobranca-tabela { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .cobranca-tabela th { color: var(--mu); font-weight: 700; font-size: 0.62rem; text-transform: uppercase; letter-spacing: .08em; padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--ln); white-space: nowrap; }
     .cobranca-tabela th:first-child { text-align: left; }
-    .cob-nome { padding: 8px; color: #fff; white-space: nowrap; border-bottom: 1px solid var(--border); }
-    .cob-cel { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
-    .cob-cel .btn-emoji { padding: 4px 9px; font-size: 0.95rem; }
+    .cob-nome { padding: 8px; white-space: nowrap; border-bottom: 1px solid var(--ln); }
+    .cob-cel { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--ln); }
+    .cob-btn { padding: 4px 10px; font-size: 0.66rem; }
+    .cob-btn.pago { background: var(--ac); border-color: var(--ac); color: #000; }
+    .cob-btn.devendo { background: transparent; border-color: rgba(255,77,77,.5); color: var(--dg); }
 
-    /* Níveis (estrelas dos jogadores) */
-    .nivel-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+    /* ===================== PIX ===================== */
+    .pix { text-align: center; }
+    .pix-qr { width: 220px; height: 220px; object-fit: contain; display: block; margin: 14px auto; padding: 10px; background: #fff; border-radius: 20px; }
+    .pix-info { text-align: left; background: var(--s2); border: 1px solid var(--ln); border-radius: var(--r-card); padding: 14px; margin-top: 12px; }
+    .pix-linha + .pix-linha { margin-top: 10px; }
+    .pix-rotulo { font-size: 0.62rem; color: var(--mu); text-transform: uppercase; letter-spacing: .14em; }
+    .pix-valor { font-weight: 700; margin-top: 2px; }
+
+    /* ===================== NÍVEIS ===================== */
+    .nivel-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--ln); }
     .nivel-item:last-child { border-bottom: none; }
-    .nivel-nome { color: #fff; font-size: 0.95rem; }
-    .nivel-estrelas { display: flex; gap: 1px; }
-    .estrela-btn { background: transparent; border: none; width: auto; padding: 2px 3px; font-size: 1.25rem; line-height: 1; cursor: pointer; color: #3a3f47; box-shadow: none; }
-    .estrela-btn.on { color: #f5c518; }
-    .nivel-badge { color: #f5c518; font-size: 0.78rem; font-weight: 700; margin-left: 4px; }
-
-    /* Controles da tela de Níveis (ordenar / filtrar) */
+    .nivel-nome { font-size: 0.9rem; }
+    .nivel-badge { color: var(--ac); font-size: 0.72rem; font-weight: 700; margin-left: 4px; }
+    .nivel-estrelas { display: flex; }
+    .estrela-btn { padding: 2px 3px; border: none; background: transparent; font-size: 1.3rem; line-height: 1; color: var(--ln2); }
+    .estrela-btn.on { color: var(--ac); }
+    .estrela-btn.pop { animation: pop 380ms var(--mola); }
     .niveis-linha { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-    .ctrl-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 2px; }
-    .ord-btn, .filtro-chip { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 0.78rem; font-weight: 700; width: auto; cursor: pointer; box-shadow: none; }
-    .ord-btn.ativo, .filtro-chip.ativo { background: linear-gradient(180deg, #26c85f, #16a34a); color: #04170c; border-color: transparent; }
+    .ctrl-label { font-size: 0.62rem; color: var(--mu); text-transform: uppercase; letter-spacing: .12em; margin-right: 2px; }
+    .ord-btn, .filtro-chip { padding: 5px 12px; font-size: 0.72rem; color: var(--mu); background: transparent; }
+    .ord-btn.ativo, .filtro-chip.ativo { background: var(--tx); border-color: var(--tx); color: #000; }
+    @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+    /* ===================== TELA CHEIA ===================== */
+    #fullscreenTimer { display: none; position: fixed; inset: 0; z-index: 9999; background: #000; flex-direction: column; justify-content: space-between; align-items: center; padding: 28px 18px; text-align: center; }
+    .tc-topo { width: 100%; max-width: 560px; margin: 0; }
+    .tc-meio { width: 100%; }
+    .tc-display { font-size: 28vw; font-weight: 700; letter-spacing: -.06em; line-height: 1; color: var(--ac); font-variant-numeric: tabular-nums; transition: color var(--t-medio); }
+    .tc-display.baixo { color: var(--dg); animation: pulsar 1s ease-in-out infinite; }
+    @media (orientation: landscape) { .tc-display { font-size: 42vh; } }
+    .tc-meio .progresso { max-width: 420px; margin: 18px auto 0; }
+    .tc-botoes { display: flex; gap: 8px; width: 100%; max-width: 460px; }
+    .tc-botoes button { flex: 1; }
 
     /* ===== Comemoração em tela cheia ===== */
     .celebracao {
@@ -429,13 +253,13 @@
     .celebracao.ativa { display: flex; animation: celRevelar 1.6s cubic-bezier(.7,0,.2,1) both; }
     .cel-conteudo { padding: 24px; position: relative; z-index: 1; }
     .cel-titulo {
-      font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700;
+      font-family: var(--fonte); font-weight: 700;
       font-size: clamp(64px, 22vw, 160px); line-height: .9; letter-spacing: -0.06em;
       animation: celTitulo 1.6s cubic-bezier(.2,.8,.2,1.15) both;
     }
     .cel-vitoria .cel-titulo { font-size: clamp(44px, 14vw, 110px); }
     .cel-sub {
-      margin-top: 14px; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700;
+      margin-top: 14px; font-family: var(--fonte); font-weight: 700;
       font-size: 0.95rem; letter-spacing: .16em; text-transform: uppercase;
       animation: celSub 1.6s ease both;
     }
@@ -463,174 +287,120 @@
       75%     { opacity: 1; transform: translate(var(--x), var(--y)) rotate(var(--r)); }
       100%    { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--r)); }
     }
-    /* Empate: mais contido (sem tremida nem partículas) */
     .cel-empate .cel-titulo { animation-name: celTituloSuave; }
     @keyframes celTituloSuave { 0%, 15% { opacity: 0; transform: scale(.9); } 35%, 78% { opacity: 1; transform: none; } 95%, 100% { opacity: 0; } }
-    /* Tremida da página por trás */
     #mainContainer.tremendo { animation: tremer .45s cubic-bezier(.36,.07,.19,.97) .3s both; }
     @keyframes tremer {
       15% { transform: translateX(-6px) rotate(-1deg); } 30% { transform: translateX(6px) rotate(1deg); }
       45% { transform: translateX(-4px); } 60% { transform: translateX(3px); } 75% { transform: translateX(-1px); } 100% { transform: none; }
     }
-    /* Movimento reduzido: só um fade */
     .celebracao.reduzido, .celebracao.reduzido .cel-titulo, .celebracao.reduzido .cel-sub { animation: celFade 1.2s ease both; }
     @keyframes celFade { 0% { opacity: 0; } 15%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+    /* ===================== MOVIMENTO REDUZIDO ===================== */
     @media (prefers-reduced-motion: reduce) {
-      #mainContainer.tremendo { animation: none !important; }
+      *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+      .celebracao.ativa, .celebracao.ativa .cel-titulo, .celebracao.ativa .cel-sub { animation: celFade 1.2s ease both !important; }
       .cel-particulas { display: none; }
+      #mainContainer.tremendo { animation: none !important; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Modal do Menu (Pagantes, Relatório e Pix) -->
-  <div class="modal-overlay" id="menuModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>📋 Painel do Gerenciador</h2>
-        <button class="close-btn" onclick="fecharMenu()">✖</button>
+  <!-- Painel (gaveta que sobe de baixo): Pagantes, Relatório, Histórico, Cobrança, Pix -->
+  <div class="sheet-fundo" id="menuModal" onclick="if (event.target === this) fecharMenu()">
+    <div class="sheet" role="dialog" aria-label="Painel do gerenciador">
+      <div class="sheet-alca"></div>
+      <div class="sheet-topo">
+        <h2>Painel</h2>
+        <button class="btn-icone grande" onclick="fecharMenu()" aria-label="Fechar"><span data-icone="x"></span></button>
       </div>
 
-      <!-- Abas de Navegação -->
-      <div class="nav-tabs">
-        <button class="tab-btn active" id="tabPagantesBtn" onclick="mudarAba('pagantes')">💰 Pagantes</button>
-        <button class="tab-btn" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">📊 Relatório</button>
-        <button class="tab-btn" id="tabHistoricoBtn" onclick="mudarAba('historico')">📅 Histórico</button>
-        <button class="tab-btn" id="tabCobrancaBtn" onclick="mudarAba('cobranca')">🧾 Cobrança</button>
-        <button class="tab-btn" id="tabPixBtn" onclick="mudarAba('pix')">📱 Pix</button>
+      <div class="abas" id="abas">
+        <span class="aba-indicador" id="abaIndicador"></span>
+        <button class="aba ativa" id="tabPagantesBtn" onclick="mudarAba('pagantes')">Pagantes</button>
+        <button class="aba" id="tabRelatorioBtn" onclick="mudarAba('relatorio')">Relatório</button>
+        <button class="aba" id="tabHistoricoBtn" onclick="mudarAba('historico')">Histórico</button>
+        <button class="aba" id="tabCobrancaBtn" onclick="mudarAba('cobranca')">Cobrança</button>
+        <button class="aba" id="tabPixBtn" onclick="mudarAba('pix')">Pix</button>
       </div>
 
-      <!-- Conteúdo da Aba Pagantes -->
-      <div id="abaPagantesView">
-        <!-- Mensalistas: entram automaticamente como "pago" -->
-        <div style="margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #333;">
-          <h3 style="font-size:0.9rem; color:#aaa; margin:0 0 8px;">⭐ Mensalistas (já entram como pago)</h3>
-          <div class="add-player-box">
+      <!-- Pagantes -->
+      <div class="aba-conteudo ativa" id="abaPagantesView">
+        <div class="mensalistas">
+          <div class="rotulo" style="margin-top:0">Mensalistas · já entram como pago</div>
+          <div class="linha-add">
             <input type="text" id="inputMensalista" placeholder="Nome do mensalista..." />
-            <button onclick="adicionarMensalista()">Add</button>
+            <button class="btn-primario" onclick="adicionarMensalista()">Add</button>
           </div>
-          <div id="listaMensalistas" style="margin-top:10px;"></div>
+          <div id="listaMensalistas" class="chips"></div>
         </div>
-        <button id="btnCobrar" style="width:100%; margin-bottom:14px; background:#25D366; color:#fff;" onclick="cobrarDevedores()">📲 Cobrar quem falta pagar (WhatsApp)</button>
-        <div id="listaPagantes"></div>
+        <button id="btnCobrar" class="btn-whats btn-bloco" onclick="cobrarDevedores()">Cobrar quem falta pagar</button>
+        <div id="listaPagantes" style="margin-top:8px;"></div>
       </div>
 
-      <!-- Conteúdo da Aba Relatório -->
-      <div id="abaRelatorioView" style="display:none;">
-        <div class="stat-box">
-          <div class="stat-title">🏆 Time com Mais Vitórias</div>
-          <div class="stat-value" id="topTime">Nenhuma partida jogada</div>
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-title">🥇 Jogador Mais Vitorioso</div>
-          <div class="stat-value" id="topJogador">Nenhum jogador em destaque</div>
-        </div>
-
-        <div class="stat-box">
-          <div class="stat-title">⚽ Artilheiro da Pelada</div>
-          <div class="stat-value" id="topArtilheiro">Sem gols ainda</div>
-        </div>
-
-        <div style="margin-top: 15px;">
-          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">⚽ Artilharia:</h3>
-          <ul class="ranking-list" id="rankingArtilhariaList"></ul>
-        </div>
-
-        <div style="margin-top: 15px;">
-          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">📊 Vitórias por Time:</h3>
-          <ul class="ranking-list" id="rankingTimesList"></ul>
-        </div>
-
-        <div style="margin-top: 15px;">
-          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">👥 Ranking Individual de Jogadores:</h3>
-          <ul class="ranking-list" id="rankingJogadoresList"></ul>
-        </div>
-
-        <div class="stat-box" style="margin-top: 18px;">
-          <div class="stat-title">⚽ Time que Mais Fez Gols</div>
-          <div class="stat-value" id="topGolsTime">Sem gols ainda</div>
-        </div>
-
-        <div style="margin-top: 15px;">
-          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">⚽ Gols por Time:</h3>
-          <ul class="ranking-list" id="rankingGolsList"></ul>
-        </div>
-
-        <div style="margin-top: 15px;">
-          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">😞 Derrotas por Time:</h3>
-          <ul class="ranking-list" id="rankingDerrotasTimesList"></ul>
-        </div>
-
-        <div style="margin-top: 15px;">
-          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">😞 Jogadores que Mais Perderam:</h3>
-          <ul class="ranking-list" id="rankingDerrotasJogadoresList"></ul>
-        </div>
+      <!-- Relatório -->
+      <div class="aba-conteudo" id="abaRelatorioView">
+        <div class="stat"><small>Time com mais vitórias</small><div class="stat-valor" id="topTime">—</div></div>
+        <div class="stat"><small>Jogador mais vitorioso</small><div class="stat-valor" id="topJogador">—</div></div>
+        <div class="stat"><small>Artilheiro da pelada</small><div class="stat-valor" id="topArtilheiro">—</div></div>
+        <div class="rotulo">Artilharia</div><ul class="ranking" id="rankingArtilhariaList"></ul>
+        <div class="rotulo">Vitórias por time</div><ul class="ranking" id="rankingTimesList"></ul>
+        <div class="rotulo">Vitórias por jogador</div><ul class="ranking" id="rankingJogadoresList"></ul>
+        <div class="stat"><small>Time que mais fez gols</small><div class="stat-valor" id="topGolsTime">—</div></div>
+        <div class="rotulo">Gols por time</div><ul class="ranking" id="rankingGolsList"></ul>
+        <div class="rotulo">Derrotas por time</div><ul class="ranking" id="rankingDerrotasTimesList"></ul>
+        <div class="rotulo">Jogadores que mais perderam</div><ul class="ranking" id="rankingDerrotasJogadoresList"></ul>
       </div>
 
-      <!-- Conteúdo da Aba Histórico -->
-      <div id="abaHistoricoView" style="display:none;">
-        <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Peladas anteriores (cada pelada é arquivada aqui quando você inicia uma nova):</p>
-        <div id="listaHistorico"><p style="color:#777;">Abra esta aba para carregar...</p></div>
+      <!-- Histórico -->
+      <div class="aba-conteudo" id="abaHistoricoView">
+        <p class="texto-mu">Cada pelada é arquivada aqui quando você inicia uma nova.</p>
+        <div id="listaHistorico"><p class="vazio">Abra esta aba para carregar...</p></div>
       </div>
 
-      <!-- Conteúdo da Aba Cobrança -->
-      <div id="abaCobrancaView" style="display:none;">
-        <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Pagamentos das últimas 3 peladas (atual + 2 anteriores). Toque em ✅/❌ para quitar ou marcar pendência.</p>
-        <div id="conteudoCobranca"><p style="color:#777;">Abra esta aba para carregar...</p></div>
+      <!-- Cobrança -->
+      <div class="aba-conteudo" id="abaCobrancaView">
+        <p class="texto-mu">Pagamentos das últimas 3 peladas (atual + 2 anteriores). Toque em Pago/Deve para alternar.</p>
+        <div id="conteudoCobranca"><p class="vazio">Abra esta aba para carregar...</p></div>
       </div>
 
-      <!-- Conteúdo da Aba Pix -->
-      <div id="abaPixView" style="display:none;">
-        <div class="pix-container">
-          <h3 style="margin: 0 0 5px 0; font-size: 1.1rem; color: #fff;">Pagamento da Pelada</h3>
-          <p style="font-size: 0.85rem; color: #aaa; margin: 0 0 10px 0;">Escaneie o QR Code abaixo para pagar via Pix:</p>
-
-          <!-- Imagem real do QR Code (arquivo qrcode.jpeg do projeto) -->
-          <img class="pix-qr-img" id="imgQrCodePix" src="qrcode.jpeg" alt="QR Code Pix Mercado Pago" />
-
-          <div class="pix-info-box">
-            <div class="pix-info-row">
-              <div class="pix-label">Beneficiário</div>
-              <div class="pix-val">Felipe Viana Feu</div>
-            </div>
-            <div class="pix-info-row">
-              <div class="pix-label">Instituição</div>
-              <div class="pix-val">Mercado Pago</div>
-            </div>
-            <div class="pix-info-row">
-              <div class="pix-label">Chave Pix (Telefone)</div>
-              <div class="pix-val">62992980612</div>
-            </div>
-          </div>
-
-          <button onclick="copiarChavePix()" style="margin-top: 15px; background: #007bff;">📋 Copiar Chave Pix</button>
+      <!-- Pix -->
+      <div class="aba-conteudo pix" id="abaPixView">
+        <h3 class="card-titulo">Pagamento da pelada</h3>
+        <p class="texto-mu">Escaneie o QR Code abaixo para pagar via Pix:</p>
+        <img class="pix-qr" id="imgQrCodePix" src="qrcode.jpeg" alt="QR Code Pix Mercado Pago" />
+        <div class="pix-info">
+          <div class="pix-linha"><div class="pix-rotulo">Beneficiário</div><div class="pix-valor">Felipe Viana Feu</div></div>
+          <div class="pix-linha"><div class="pix-rotulo">Instituição</div><div class="pix-valor">Mercado Pago</div></div>
+          <div class="pix-linha"><div class="pix-rotulo">Chave Pix (telefone)</div><div class="pix-valor">62992980612</div></div>
         </div>
+        <button class="btn-primario btn-bloco" style="margin-top:14px;" onclick="copiarChavePix()"><span data-icone="copy" data-tam="16"></span>Copiar chave Pix</button>
       </div>
-
     </div>
   </div>
 
-  <!-- Modal do Empate: admin escolhe quem joga primeiro (par ou ímpar) -->
-  <div class="modal-overlay" id="empateModal">
-    <div class="modal-card" style="max-width:420px;">
-      <div class="modal-header"><h2>🤝 Empate!</h2></div>
-      <p style="color:var(--muted); font-size:0.9rem; margin:0 0 14px;">Tirem par ou ímpar na quadra. Quem ganhou vai <strong style="color:#fff;">na frente</strong> (joga primeiro):</p>
-      <div id="empateBotoes" style="display:flex; flex-direction:column; gap:10px;"></div>
+  <!-- Empate: admin escolhe quem joga primeiro (par ou ímpar) -->
+  <div class="modal-fundo" id="empateModal">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-topo"><h2>Empate</h2></div>
+      <p class="texto-mu">Tirem par ou ímpar na quadra. Quem ganhou vai <strong style="color:var(--tx)">na frente</strong> (joga primeiro):</p>
+      <div id="empateBotoes" class="empate-botoes"></div>
     </div>
   </div>
 
-  <!-- Modal SECRETO de Níveis (só organizadores) — aberto por 5 toques no subtítulo -->
-  <div class="modal-overlay" id="niveisModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2>⭐ Níveis (organizadores)</h2>
-        <button class="close-btn" onclick="fecharNiveis()">✖</button>
+  <!-- Níveis (secreto: 5 toques na marca do topo) -->
+  <div class="modal-fundo" id="niveisModal">
+    <div class="modal">
+      <div class="modal-topo">
+        <h2>Níveis</h2>
+        <button class="btn-icone grande" onclick="fecharNiveis()" aria-label="Fechar"><span data-icone="x"></span></button>
       </div>
-      <p style="font-size:0.85rem; color:#aaa; margin:0 0 10px;">Defina o nível de cada jogador (1 a 5 ⭐). O sorteio usa isso para <strong style="color:#fff;">equilibrar</strong> os times (craques separados, fracos com fortes). Sem nota = 3⭐. Esta tela é secreta.</p>
-      <div class="add-player-box">
+      <p class="texto-mu">Defina o nível de cada jogador (1 a 5 ★). O sorteio usa isso para <strong style="color:var(--tx)">equilibrar</strong> os times (craques separados, fracos com fortes). Sem nota = 3★. Esta tela é secreta.</p>
+      <div class="linha-add">
         <input type="text" id="inputNivelNome" placeholder="Adicionar jogador para avaliar..." />
-        <button onclick="adicionarJogadorNivel()">Add</button>
+        <button class="btn-primario" onclick="adicionarJogadorNivel()">Add</button>
       </div>
       <div id="niveisControles" style="margin-top:14px;"></div>
       <div id="listaNiveis" style="margin-top:6px;"></div>
@@ -646,88 +416,85 @@
     <div class="cel-particulas" id="celParticulas"></div>
   </div>
 
-  <!-- Tela Cheia de Cronômetro -->
+  <!-- Tela cheia do cronômetro -->
   <div id="fullscreenTimer">
-    <div class="fullscreen-header">⚽ PARTIDA EM ANDAMENTO</div>
-    <div class="fullscreen-display" id="fullscreenDisplay">07:00</div>
-    <div class="fullscreen-controls">
-      <button class="btn-timer btn-pause" id="btnFsPause" onclick="toggleTimer()">⏸ Pausar</button>
-      <button class="btn-timer btn-reset" onclick="fecharTelaCheia()">🔙 Sair da Tela Cheia</button>
+    <div class="tc-topo rotulo"><span id="tcPlacar">Partida em andamento</span><b>● ao vivo</b></div>
+    <div class="tc-meio">
+      <div class="tc-display" id="fullscreenDisplay">07:00</div>
+      <div class="progresso"><i></i></div>
+    </div>
+    <div class="tc-botoes">
+      <button class="btn-primario" id="btnFsPause" onclick="toggleTimer()"></button>
+      <button onclick="fecharTelaCheia()"><span data-icone="minimize" data-tam="16"></span>Sair</button>
     </div>
   </div>
 
   <div id="mainContainer">
-    <div class="header-container">
-      <span class="menu-icon" onclick="abrirMenu()" data-icone="menu" data-tam="28"></span>
-      <h1>⚽ Futebol de Segunda da Sal CMA</h1>
-    </div>
-    <div class="sub-title" onclick="tentarAbrirNiveis()">Gerenciador de Pelada & Sorteio</div>
+    <header class="topo">
+      <button class="btn-icone grande" onclick="abrirMenu()" aria-label="Abrir painel"><span data-icone="menu"></span></button>
+      <div class="marca" onclick="tentarAbrirNiveis()">Sal CMA<b>Futebol de Segunda</b></div>
+      <button id="btnDesfazer" class="btn-icone grande desfazer oculto" onclick="desfazer()" aria-label="Desfazer última ação">
+        <span data-icone="undo"></span><span class="desfazer-qtd" id="desfazerQtd">0</span>
+      </button>
+    </header>
 
     <!-- Indicador de sincronização com a nuvem -->
     <div class="sync-badge" id="syncBadge"><span class="dot"></span><span id="syncTexto">Conectando à nuvem...</span></div>
-
-    <!-- Botão Desfazer (aparece quando há algo para desfazer) -->
-    <button id="btnDesfazer" class="btn-blue" style="width:100%; margin-bottom:12px; display:none;" onclick="desfazer()">↩️ Desfazer última ação</button>
 
     <!-- Áudio: Sirene -->
     <audio id="audioSirene" loop preload="auto">
       <source src="https://www.myinstants.com/media/sounds/sirene-1.mp3" type="audio/mpeg">
     </audio>
 
-    <!-- Cronômetro (Visão Card) -->
-    <div class="card timer-card" id="timerArea" style="display:none;">
-      <h2>⏱️ Tempo de Jogo</h2>
+    <!-- Cronômetro -->
+    <section id="timerArea" style="display:none;">
+      <div class="rotulo">Tempo de jogo <b id="statusTimer"></b></div>
       <div class="timer-display" id="timerDisplay">07:00</div>
-      <div class="timer-controls">
-        <button class="btn-timer btn-play" id="btnStartPause" onclick="toggleTimer()">▶ Play</button>
-        <button class="btn-timer btn-reset" onclick="resetTimer()">🔄 Reiniciar</button>
-        <button class="btn-timer btn-fullscreen" onclick="abrirTelaCheia()">📺 Tela Cheia</button>
+      <div class="progresso"><i></i></div>
+      <div class="timer-botoes">
+        <button class="btn-primario" id="btnStartPause" onclick="toggleTimer()"></button>
+        <button onclick="resetTimer()"><span data-icone="rotate-ccw" data-tam="16"></span>Reiniciar</button>
+        <button onclick="abrirTelaCheia()"><span data-icone="maximize" data-tam="16"></span>Tela cheia</button>
       </div>
-      <div id="seletorModo" class="modo-jogo"></div>
+      <div id="seletorModo" class="segmentado"></div>
       <div id="modoLegenda" class="modo-legenda"></div>
-      <button class="btn-stop-alarm" id="btnStopAlarm" onclick="pararAlarme()">🔕 PARAR SIRENE</button>
-    </div>
+      <button class="btn-parar-sirene" id="btnStopAlarm" onclick="pararAlarme()"><span data-icone="bell-off" data-tam="16"></span> Parar sirene</button>
+    </section>
 
-    <!-- Cadastro Inicial de Jogadores -->
-    <div class="card" id="setup">
-      <h2>1. Cadastrar Jogadores Iniciais</h2>
-      <p style="font-size:0.85rem; color:#aaa; margin-top:0;">Cole os nomes dos que já chegaram (um por linha):</p>
-      <textarea id="inputNomes" placeholder="Jogador 1&#10;Jogador 2&#10;Jogador 3..."></textarea>
-      <button onclick="gerarSorteio()">🎲 Sortear Times (4 por time)</button>
-    </div>
+    <!-- Cadastro inicial -->
+    <section class="card" id="setup">
+      <h2 class="card-titulo">Cadastrar jogadores</h2>
+      <p class="texto-mu">Cole os nomes dos que já chegaram, um por linha.</p>
+      <textarea id="inputNomes" placeholder="JOÃO&#10;PEDRO&#10;LUCAS..."></textarea>
+      <button class="btn-primario btn-bloco" onclick="gerarSorteio()"><span data-icone="shuffle" data-tam="16"></span>Sortear times (4 por time)</button>
+    </section>
 
-    <!-- Adicionar Novo Jogador -->
-    <div class="card" style="display:none;" id="addPlayerArea">
-      <h2>➕ Chegou mais um jogador?</h2>
-      <div class="add-player-box">
-        <input type="text" id="novoJogadorNome" placeholder="Nome do jogador..." />
-        <button onclick="adicionarNovoJogador()">Adicionar</button>
-      </div>
-      <button class="btn-danger" style="width:100%; margin-top:12px; padding:12px; font-size:0.9rem;" onclick="novaPelada()">🆕 Nova Pelada (apagar tudo)</button>
-    </div>
+    <!-- Avisos -->
+    <div class="aviso" id="bannerAlerta3Jogo"><span data-icone="alert-triangle" data-tam="16"></span>Partida decisiva: o time com 2 vitórias sai nesta partida.</div>
+    <div class="aviso info" id="bannerLotacao"><span data-icone="alert-triangle" data-tam="16"></span><span id="bannerLotacaoTexto">Limite de 20 atletas atingido (5 times).</span></div>
 
-    <!-- Banner de Alerta para 3º Jogo -->
-    <div class="alert-banner" id="bannerAlerta3Jogo">
-      ⚠️ ATENÇÃO: Partida decisiva! O time com 2 vitórias sai nesta partida.
-    </div>
+    <!-- Partida atual -->
+    <section id="gameArea" style="display:none;">
+      <div id="timesJogando"></div>
+      <div class="rotulo" id="rotuloEncerrar">Encerrar no tempo</div>
+      <div class="encerrar" id="botoesVitoria"></div>
+    </section>
 
-    <!-- Banner de Lotação (20 atletas / 5 times) -->
-    <div class="alert-banner" id="bannerLotacao" style="background:#17a2b8; color:#fff;">
-      🚨 Limite de 20 atletas atingido (5 times).
-    </div>
-
-    <!-- Partida Atual -->
-    <div class="card" style="display:none;" id="gameArea">
-      <h2>⚔️ Partida em Andamento</h2>
-      <div id="timesJogando" class="game-grid"></div>
-      <div class="actions-grid" id="botoesVitoria"></div>
-    </div>
-
-    <!-- Próximos Times / Fila -->
-    <div class="card" style="display:none;" id="queueArea">
-      <h2>📋 Fila de Espera</h2>
+    <!-- Fila -->
+    <section id="queueArea" style="display:none;">
+      <div class="rotulo">Fila <b id="filaQtd"></b></div>
       <div id="listaFila"></div>
-    </div>
+    </section>
+
+    <!-- Chegou mais um jogador / nova pelada -->
+    <section id="addPlayerArea" style="display:none;">
+      <div class="rotulo">Chegou mais um?</div>
+      <div class="linha-add">
+        <input type="text" id="novoJogadorNome" placeholder="Nome do jogador..." />
+        <button class="btn-primario" onclick="adicionarNovoJogador()">Adicionar</button>
+      </div>
+      <button class="btn-perigo btn-bloco" style="margin-top:22px;" onclick="novaPelada()">Nova pelada (apagar tudo)</button>
+    </section>
   </div>
 
   <script>
@@ -1025,12 +792,9 @@
     function atualizarBotaoDesfazer() {
       const b = document.getElementById('btnDesfazer');
       if (!b) return;
-      if (pilhaDesfazer.length > 0) {
-        b.style.display = 'block';
-        b.innerText = `↩️ Desfazer última ação (${pilhaDesfazer.length})`;
-      } else {
-        b.style.display = 'none';
-      }
+      b.classList.toggle('oculto', pilhaDesfazer.length === 0);
+      const q = document.getElementById('desfazerQtd');
+      if (q) q.innerText = pilhaDesfazer.length;
     }
 
     // Atalho Ctrl+Z (ou Cmd+Z) no computador — ignora quando digitando em campos
@@ -1350,59 +1114,40 @@
       atualizarListaPagantesUI();
       atualizarMensalistasUI();
       atualizarRelatorioUI();
-      document.getElementById('menuModal').style.display = 'block';
+      document.getElementById('menuModal').classList.add('aberto');
+      requestAnimationFrame(posicionarIndicadorAba);
     }
 
     function fecharMenu() {
-      document.getElementById('menuModal').style.display = 'none';
+      document.getElementById('menuModal').classList.remove('aberto');
     }
 
+    const ABAS = {
+      pagantes:  { botao: 'tabPagantesBtn',  view: 'abaPagantesView',  carregar: () => { atualizarListaPagantesUI(); atualizarMensalistasUI(); } },
+      relatorio: { botao: 'tabRelatorioBtn', view: 'abaRelatorioView', carregar: () => atualizarRelatorioUI() },
+      historico: { botao: 'tabHistoricoBtn', view: 'abaHistoricoView', carregar: () => carregarHistorico() },
+      cobranca:  { botao: 'tabCobrancaBtn',  view: 'abaCobrancaView',  carregar: () => carregarCobranca() },
+      pix:       { botao: 'tabPixBtn',       view: 'abaPixView',       carregar: () => {} }
+    };
+
     function mudarAba(aba) {
-      const btnPagantes = document.getElementById('tabPagantesBtn');
-      const btnRelatorio = document.getElementById('tabRelatorioBtn');
-      const btnHistorico = document.getElementById('tabHistoricoBtn');
-      const btnCobranca = document.getElementById('tabCobrancaBtn');
-      const btnPix = document.getElementById('tabPixBtn');
+      if (!ABAS[aba]) return;
+      Object.keys(ABAS).forEach(k => {
+        document.getElementById(ABAS[k].botao).classList.toggle('ativa', k === aba);
+        document.getElementById(ABAS[k].view).classList.toggle('ativa', k === aba);
+      });
+      ABAS[aba].carregar();
+      posicionarIndicadorAba();
+    }
 
-      const viewPagantes = document.getElementById('abaPagantesView');
-      const viewRelatorio = document.getElementById('abaRelatorioView');
-      const viewHistorico = document.getElementById('abaHistoricoView');
-      const viewCobranca = document.getElementById('abaCobrancaView');
-      const viewPix = document.getElementById('abaPixView');
-
-      btnPagantes.classList.remove('active');
-      btnRelatorio.classList.remove('active');
-      btnHistorico.classList.remove('active');
-      btnCobranca.classList.remove('active');
-      btnPix.classList.remove('active');
-
-      viewPagantes.style.display = 'none';
-      viewRelatorio.style.display = 'none';
-      viewHistorico.style.display = 'none';
-      viewCobranca.style.display = 'none';
-      viewPix.style.display = 'none';
-
-      if (aba === 'pagantes') {
-        btnPagantes.classList.add('active');
-        viewPagantes.style.display = 'block';
-        atualizarListaPagantesUI();
-        atualizarMensalistasUI();
-      } else if (aba === 'relatorio') {
-        btnRelatorio.classList.add('active');
-        viewRelatorio.style.display = 'block';
-        atualizarRelatorioUI();
-      } else if (aba === 'historico') {
-        btnHistorico.classList.add('active');
-        viewHistorico.style.display = 'block';
-        carregarHistorico();
-      } else if (aba === 'cobranca') {
-        btnCobranca.classList.add('active');
-        viewCobranca.style.display = 'block';
-        carregarCobranca();
-      } else if (aba === 'pix') {
-        btnPix.classList.add('active');
-        viewPix.style.display = 'block';
-      }
+    // Pílula branca que desliza até a aba ativa
+    function posicionarIndicadorAba() {
+      const ind = document.getElementById('abaIndicador');
+      const ativa = document.querySelector('.aba.ativa');
+      if (!ind || !ativa) return;
+      ind.style.width = ativa.offsetWidth + 'px';
+      ind.style.transform = `translateX(${ativa.offsetLeft}px)`;
+      if (ativa.scrollIntoView) ativa.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     }
 
     function copiarChavePix() {
@@ -1547,11 +1292,11 @@
 
     function abrirNiveis() {
       atualizarNiveisUI();
-      document.getElementById('niveisModal').style.display = 'block';
+      document.getElementById('niveisModal').classList.add('aberto');
     }
 
     function fecharNiveis() {
-      document.getElementById('niveisModal').style.display = 'none';
+      document.getElementById('niveisModal').classList.remove('aberto');
     }
 
     // Gesto secreto: 5 toques no subtítulo abrem a tela de Níveis (só organizadores sabem)
@@ -1783,13 +1528,19 @@
     }
 
     function atualizarDisplayTimer() {
-      const textoFormatado = formatarTempo(tempoRestanteSeg);
-      document.getElementById('timerDisplay').innerText = textoFormatado;
-      document.getElementById('fullscreenDisplay').innerText = textoFormatado;
-
-      const cor = tempoRestanteSeg <= 60 ? '#dc3545' : '#28a745';
-      document.getElementById('timerDisplay').style.color = cor;
-      document.getElementById('fullscreenDisplay').style.color = cor;
+      const texto = formatarTempo(tempoRestanteSeg);
+      const baixo = tempoRestanteSeg <= 60;
+      const disp = document.getElementById('timerDisplay');
+      const fs = document.getElementById('fullscreenDisplay');
+      disp.innerText = texto;
+      fs.innerText = texto;
+      disp.classList.toggle('baixo', baixo);
+      fs.classList.toggle('baixo', baixo);
+      const p = Math.max(0, Math.min(1, tempoRestanteSeg / duracaoJogoSeg()));
+      document.querySelectorAll('.progresso').forEach(el => {
+        el.style.setProperty('--p', p);
+        el.classList.toggle('baixo', baixo);
+      });
     }
 
     // ===== CRONÔMETRO SINCRONIZADO (mesmo tempo em todos os aparelhos) =====
@@ -1801,13 +1552,11 @@
     function atualizarBotoesTimer() {
       const btn = document.getElementById('btnStartPause');
       const btnFs = document.getElementById('btnFsPause');
-      if (rodando) {
-        if (btn) { btn.innerText = '⏸ Pausar'; btn.className = 'btn-timer btn-pause'; }
-        if (btnFs) { btnFs.innerText = '⏸ Pausar'; btnFs.className = 'btn-timer btn-pause'; }
-      } else {
-        if (btn) { btn.innerText = '▶ Play'; btn.className = 'btn-timer btn-play'; }
-        if (btnFs) { btnFs.innerText = '▶ Continuar'; btnFs.className = 'btn-timer btn-play'; }
-      }
+      const status = document.getElementById('statusTimer');
+      const pausar = `${icone('pause', 16)}Pausar`;
+      if (btn) btn.innerHTML = rodando ? pausar : `${icone('play', 16)}Play`;
+      if (btnFs) btnFs.innerHTML = rodando ? pausar : `${icone('play', 16)}Continuar`;
+      if (status) status.innerText = rodando ? '● ao vivo' : '';
     }
 
     function tickTimer() {
@@ -1912,8 +1661,8 @@
       const sel = document.getElementById('seletorModo');
       if (sel) {
         sel.innerHTML =
-          `<button class="modo-btn ${modoJogo === '7e2' ? 'ativo' : ''}" onclick="definirModoJogo('7e2')">7 min · 2 gols</button>` +
-          `<button class="modo-btn ${modoJogo === '10min' ? 'ativo' : ''}" onclick="definirModoJogo('10min')">10 min corrido</button>`;
+          `<button class="${modoJogo === '7e2' ? 'ativo' : ''}" onclick="definirModoJogo('7e2')">7 min · 2 gols</button>` +
+          `<button class="${modoJogo === '10min' ? 'ativo' : ''}" onclick="definirModoJogo('10min')">10 min corrido</button>`;
       }
       const leg = document.getElementById('modoLegenda');
       if (leg) {
@@ -2045,28 +1794,18 @@
       else if (tot > 20) alert('🚨 Atenção: já passou de 20 atletas (limite da pelada).');
     }
 
-    function getTeamClass(id) {
-      return CORES[corDoTime(id)].theme;
-    }
-
-    function getBtnColorStyle(id) {
-      return CORES[corDoTime(id)].btn;
-    }
-
     function renderBadgePartidas(qtd) {
-      if (qtd === 2) {
-        return `<span class="match-badge match-badge-alert">⚠️ 3º JOGO (ÚLTIMO)</span>`;
-      }
-      return `<span class="match-badge">${qtd}/3 jogos</span>`;
+      if (qtd === 2) return `<span class="selo alerta">3º jogo · último</span>`;
+      return `<span class="selo">${qtd}/3 jogos</span>`;
     }
 
     // ----- CORES DOS TIMES (o admin escolhe após o sorteio) -----
     const CORES = {
-      azul:     { nome: 'Azul',     theme: 'team-theme-1',       dot: '#2b82d9', btn: 'background: #007bff; color: white;' },
-      laranja:  { nome: 'Laranja',  theme: 'team-theme-2',       dot: '#ff9800', btn: 'background: #ff9800; color: #121212;' },
-      verde:    { nome: 'Verde',    theme: 'team-theme-3',       dot: '#28a745', btn: 'background: #28a745; color: white;' },
-      vermelho: { nome: 'Vermelho', theme: 'team-theme-4',       dot: '#dc3545', btn: 'background: #dc3545; color: white;' },
-      cinza:    { nome: 'Cinza',    theme: 'team-theme-default', dot: '#8a929e', btn: 'background: #6c757d; color: white;' }
+      azul:     { nome: 'Azul',     dot: '#3b82f6' },
+      laranja:  { nome: 'Laranja',  dot: '#f97316' },
+      verde:    { nome: 'Verde',    dot: '#22c55e' },
+      vermelho: { nome: 'Vermelho', dot: '#ef4444' },
+      cinza:    { nome: 'Cinza',    dot: '#9ca3af' }
     };
     const ORDEM_CORES = ['azul', 'laranja', 'verde', 'vermelho', 'cinza'];
 
@@ -2098,11 +1837,46 @@
     // Bolinhas de cor que o admin toca para escolher a cor do time
     function renderSeletorCor(id) {
       const atual = corDoTime(id);
-      const bolinhas = ORDEM_CORES.map(c => {
-        const ativo = c === atual ? ' cor-swatch-ativo' : '';
-        return `<button class="cor-swatch${ativo}" style="background:${CORES[c].dot}" title="${CORES[c].nome}" onclick="definirCorTime(${id}, '${c}')"></button>`;
-      }).join('');
-      return `<div class="cor-seletor"><span class="cor-label">Cor:</span>${bolinhas}</div>`;
+      return `<div class="cores">${ORDEM_CORES.map(c =>
+        `<button class="cor-bolinha${c === atual ? ' ativa' : ''}" style="--c:${CORES[c].dot}" title="${CORES[c].nome}" aria-label="Cor ${CORES[c].nome}" onclick="definirCorTime(${id}, '${c}')"></button>`
+      ).join('')}</div>`;
+    }
+
+    function renderQuadradinho(id) {
+      return `<span class="quadradinho" style="--c:${CORES[corDoTime(id)].dot}"></span>`;
+    }
+
+    function renderPlacar(timeA, timeB) {
+      return `
+        <div class="placar">
+          <div class="placar-lado">
+            <div class="placar-time">${renderQuadradinho(timeA.id)}${CORES[corDoTime(timeA.id)].nome}</div>
+            <div class="placar-num" id="placarA">${golsA}</div>
+          </div>
+          <div class="placar-x">×</div>
+          <div class="placar-lado" style="text-align:right">
+            <div class="placar-time">${CORES[corDoTime(timeB.id)].nome}${renderQuadradinho(timeB.id)}</div>
+            <div class="placar-num" id="placarB">${golsB}</div>
+          </div>
+        </div>`;
+    }
+
+    // Cartão de um time (em quadra: i = 0 ou 1; na fila: i >= 2)
+    function renderCartaoTime(i) {
+      const t = times[i];
+      if (!t) return '';
+      const naFila = i >= 2;
+      const cor = CORES[corDoTime(t.id)];
+      const titulo = naFila ? `${i - 1}º · ${cor.nome}` : cor.nome;
+      return `
+        <div class="time${naFila ? ' fila-time' : ''}" data-chave="t:${t.id}" style="--c:${cor.dot}">
+          <div class="time-topo">
+            <span class="time-nome">${titulo}<small>${t.jogadores.length}/4</small></span>
+            ${naFila ? '' : renderBadgePartidas(t.partidasSeguidas || 0)}
+          </div>
+          ${renderSeletorCor(t.id)}
+          ${renderListaJogadores(i)}
+        </div>`;
     }
 
     // ----- PLACAR DE GOLS (7 min OU 2 gols) -----
@@ -2147,11 +1921,9 @@
       const b = document.getElementById('bannerLotacao');
       if (!b) return;
       const total = totalAtletas();
+      b.classList.toggle('visivel', total >= 20);
       if (total >= 20) {
-        b.style.display = 'block';
-        b.innerText = `🚨 ${total} atletas / ${times.length} times — limite de 20 atingido.`;
-      } else {
-        b.style.display = 'none';
+        document.getElementById('bannerLotacaoTexto').innerText = `${total} atletas / ${times.length} times — limite de 20 atingido.`;
       }
     }
 
@@ -2159,67 +1931,46 @@
       recomporTimes();
       const areaJogo = document.getElementById('timesJogando');
       const botoesJogo = document.getElementById('botoesVitoria');
-      const banner = document.getElementById('bannerAlerta3Jogo');
-
+      const rotuloEncerrar = document.getElementById('rotuloEncerrar');
       let temTimeNo3Jogo = false;
 
       if (times.length >= 2) {
         const timeA = times[0]; const timeB = times[1];
+        if (timeA.partidasSeguidas === 2 || timeB.partidasSeguidas === 2) temTimeNo3Jogo = true;
+        const nomeA = CORES[corDoTime(timeA.id)].nome, nomeB = CORES[corDoTime(timeB.id)].nome;
 
-        if (timeA.partidasSeguidas === 2 || timeB.partidasSeguidas === 2) {
-          temTimeNo3Jogo = true;
-        }
-
-        areaJogo.innerHTML = `
-          <div class="placar-geral">${nomeTime(timeA.id)} &nbsp;${golsA} x ${golsB}&nbsp; ${nomeTime(timeB.id)}</div>
-          <div class="team-box ${getTeamClass(timeA.id)}">
-            ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
-            <h3>${nomeTime(timeA.id)} (${timeA.jogadores.length}/4)</h3>
-            ${renderSeletorCor(timeA.id)}
-            ${renderListaJogadores(0)}
-          </div>
-          <div class="team-box ${getTeamClass(timeB.id)}">
-            ${renderBadgePartidas(timeB.partidasSeguidas || 0)}
-            <h3>${nomeTime(timeB.id)} (${timeB.jogadores.length}/4)</h3>
-            ${renderSeletorCor(timeB.id)}
-            ${renderListaJogadores(1)}
-          </div>
-        `;
+        areaJogo.innerHTML = renderPlacar(timeA, timeB) + renderCartaoTime(0) + renderCartaoTime(1);
+        rotuloEncerrar.style.display = '';
+        rotuloEncerrar.innerText = `Encerrar no tempo (${modoJogo === '10min' ? '10 min' : '7 min'})`;
         botoesJogo.innerHTML = `
-          <div style="grid-column:1/-1; text-align:center; font-size:0.8rem; color:#888; margin-bottom:4px;">Encerrar no tempo (${modoJogo === '10min' ? '10 min' : '7 min'}) — quem fez mais gols:</div>
-          <button style="${getBtnColorStyle(timeA.id)}" onclick="fimDeJogo(0)">${nomeTime(timeA.id)}</button>
-          <button class="btn-warning" onclick="empate()">Empate 🤝</button>
-          <button style="${getBtnColorStyle(timeB.id)}" onclick="fimDeJogo(1)">${nomeTime(timeB.id)}</button>
+          <button onclick="fimDeJogo(0)">${renderQuadradinho(timeA.id)}${nomeA} venceu</button>
+          <button onclick="empate()">Empate</button>
+          <button onclick="fimDeJogo(1)">${renderQuadradinho(timeB.id)}${nomeB} venceu</button>
         `;
+        const tc = document.getElementById('tcPlacar');
+        if (tc) tc.innerText = `${nomeA} ${golsA} × ${golsB} ${nomeB}`;
       } else if (times.length === 1) {
-        const timeA = times[0];
-        areaJogo.innerHTML = `
-          <div class="team-box ${getTeamClass(timeA.id)}">
-            ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
-            <h3>${nomeTime(timeA.id)} (${timeA.jogadores.length}/4)</h3>
-            ${renderSeletorCor(timeA.id)}
-            ${renderListaJogadores(0)}
-          </div>
-          <p style="text-align:center; font-size:0.9rem; color:#aaa;">Aguardando mais jogadores...</p>
-        `;
+        areaJogo.innerHTML = renderCartaoTime(0) + '<p class="aguardando">Aguardando mais jogadores...</p>';
+        rotuloEncerrar.style.display = 'none';
+        botoesJogo.innerHTML = '';
+      } else {
+        areaJogo.innerHTML = '';
+        rotuloEncerrar.style.display = 'none';
         botoesJogo.innerHTML = '';
       }
 
-      banner.style.display = temTimeNo3Jogo ? 'block' : 'none';
+      document.getElementById('bannerAlerta3Jogo').classList.toggle('visivel', temTimeNo3Jogo);
 
-      const areaFila = document.getElementById('listaFila'); areaFila.innerHTML = '';
+      const areaFila = document.getElementById('listaFila');
+      const naFila = Math.max(0, times.length - 2);
+      document.getElementById('filaQtd').innerText = naFila ? `${naFila} ${naFila === 1 ? 'time' : 'times'}` : '';
       if (times.length > 2) {
-        for (let i = 2; i < times.length; i++) {
-          const timeFila = times[i];
-          areaFila.innerHTML += `
-            <div class="team-box ${getTeamClass(timeFila.id)}" style="margin-bottom:10px;">
-              <strong style="font-size:0.9rem;">${i - 1}º da Fila - ${nomeTime(timeFila.id)} (${timeFila.jogadores.length}/4)</strong>
-              ${renderSeletorCor(timeFila.id)}
-              ${renderListaJogadores(i)}
-            </div>
-          `;
-        }
-      } else { areaFila.innerHTML = '<p style="color:#777; font-size:0.9rem; text-align:center;">Sem times na fila.</p>'; }
+        let html = '';
+        for (let i = 2; i < times.length; i++) html += renderCartaoTime(i);
+        areaFila.innerHTML = html;
+      } else {
+        areaFila.innerHTML = '<p class="vazio">Sem times na fila.</p>';
+      }
 
       atualizarAvisoLotacao();
       atualizarSeletorModo();
@@ -2381,15 +2132,15 @@
       const cont = document.getElementById('empateBotoes');
       if (cont) {
         cont.innerHTML =
-          `<button style="${getBtnColorStyle(timeA.id)}" onclick="resolverEmpate(0)">${nomeTime(timeA.id)} joga primeiro</button>` +
-          `<button style="${getBtnColorStyle(timeB.id)}" onclick="resolverEmpate(1)">${nomeTime(timeB.id)} joga primeiro</button>` +
-          `<button class="btn-reset" style="color:#fff; margin-top:4px;" onclick="fecharEmpateModal()">Cancelar</button>`;
+          `<button class="btn-bloco" onclick="resolverEmpate(0)">${renderQuadradinho(timeA.id)}${nomeTime(timeA.id)} joga primeiro</button>` +
+          `<button class="btn-bloco" onclick="resolverEmpate(1)">${renderQuadradinho(timeB.id)}${nomeTime(timeB.id)} joga primeiro</button>` +
+          `<button class="btn-bloco" style="background:transparent; color:var(--mu);" onclick="fecharEmpateModal()">Cancelar</button>`;
       }
-      document.getElementById('empateModal').style.display = 'block';
+      document.getElementById('empateModal').classList.add('aberto');
     }
 
     function fecharEmpateModal() {
-      document.getElementById('empateModal').style.display = 'none';
+      document.getElementById('empateModal').classList.remove('aberto');
     }
 
     // frenteIndex: 0 = time da esquerda joga primeiro | 1 = time da direita joga primeiro
