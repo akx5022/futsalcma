@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { carregarApp } = require('./harness');
+const { carregarApp, HTML } = require('./harness');
 
 test('relatório: artilharia com barra proporcional e destaque do artilheiro', () => {
   const app = carregarApp();
@@ -11,17 +11,28 @@ test('relatório: artilharia com barra proporcional e destaque do artilheiro', (
   assert.match(lista, /class="ranking-barra"><i style="width:50%">/);
 });
 
-test('relatório sem dados mostra "Sem dados"', () => {
+test('relatório sem gols mostra "Sem gols ainda" e "Sem dados"', () => {
   const app = carregarApp();
   app.run('atualizarRelatorioUI()');
-  assert.match(app.el('rankingTimesList').innerHTML, /Sem dados/);
+  assert.match(app.el('rankingArtilhariaList').innerHTML, /Sem dados/);
   assert.equal(app.el('topArtilheiro').innerHTML, 'Sem gols ainda');
 });
 
-test('derrotas usam a barra vermelha', () => {
+test('a aba Relatório mostra só a artilharia', () => {
+  const aba = HTML.match(/<div class="aba-conteudo" id="abaRelatorioView">([\s\S]*?)<\/div>\s*<!--/)[1];
+  assert.match(aba, /id="topArtilheiro"/);
+  assert.match(aba, /id="rankingArtilhariaList"/);
+  for (const id of ['topTime', 'topJogador', 'rankingTimesList', 'rankingJogadoresList', 'topGolsTime',
+    'rankingGolsList', 'rankingDerrotasTimesList', 'rankingDerrotasJogadoresList']) {
+    assert.doesNotMatch(aba, new RegExp(`id="${id}"`), `${id} não deveria estar no Relatório`);
+  }
+});
+
+test('a artilharia zera numa nova pelada (novo sorteio)', () => {
   const app = carregarApp();
-  app.run(`derrotasJogadores = { EDU: 3 }; atualizarRelatorioUI()`);
-  assert.match(app.el('rankingDerrotasJogadoresList').innerHTML, /ranking-barra perigo/);
+  app.el('inputNomes').value = 'ANA\nBIA\nCAU\nDUDA';
+  app.run(`golsJogadores = { ANA: 3 }; gerarSorteio()`);
+  assert.deepEqual(app.pegar('golsJogadores'), {});
 });
 
 test('pagantes: toggle Pago/Deve e botão de cobrar com contagem', () => {

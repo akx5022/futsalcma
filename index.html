@@ -179,7 +179,6 @@
     .ranking-nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48%; }
     .ranking-barra { flex: 1; height: 4px; background: var(--ln); border-radius: 2px; overflow: hidden; }
     .ranking-barra i { display: block; height: 100%; background: var(--ac); border-radius: 2px; }
-    .ranking-barra.perigo i { background: var(--dg); }
     .ranking-valor { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
     .hist { background: var(--s2); border: 1px solid var(--ln); border-radius: var(--r-card); padding: 14px; margin-bottom: 10px; }
     .hist-data { font-size: 0.7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ac); font-weight: 700; margin-bottom: 4px; }
@@ -360,16 +359,8 @@
 
       <!-- Relatório -->
       <div class="aba-conteudo" id="abaRelatorioView">
-        <div class="stat"><small>Time com mais vitórias</small><div class="stat-valor" id="topTime">—</div></div>
-        <div class="stat"><small>Jogador mais vitorioso</small><div class="stat-valor" id="topJogador">—</div></div>
         <div class="stat"><small>Artilheiro da pelada</small><div class="stat-valor" id="topArtilheiro">—</div></div>
-        <div class="rotulo">Artilharia</div><ul class="ranking" id="rankingArtilhariaList"></ul>
-        <div class="rotulo">Vitórias por time</div><ul class="ranking" id="rankingTimesList"></ul>
-        <div class="rotulo">Vitórias por jogador</div><ul class="ranking" id="rankingJogadoresList"></ul>
-        <div class="stat"><small>Time que mais fez gols</small><div class="stat-valor" id="topGolsTime">—</div></div>
-        <div class="rotulo">Gols por time</div><ul class="ranking" id="rankingGolsList"></ul>
-        <div class="rotulo">Derrotas por time</div><ul class="ranking" id="rankingDerrotasTimesList"></ul>
-        <div class="rotulo">Jogadores que mais perderam</div><ul class="ranking" id="rankingDerrotasJogadoresList"></ul>
+        <div class="rotulo">Artilharia <span>zera a cada pelada</span></div><ul class="ranking" id="rankingArtilhariaList"></ul>
       </div>
 
       <!-- Histórico -->
@@ -1444,46 +1435,25 @@
     function plural(n, um, varios) { return `${n} ${n === 1 ? um : varios}`; }
 
     // Lista com barra proporcional ao maior valor
-    function renderRanking(mapa, chaves, { rotulo = n => n, perigo = false } = {}) {
+    function renderRanking(mapa, chaves) {
       if (!chaves.length) return '<li class="vazio">Sem dados</li>';
       const max = Math.max(1, ...chaves.map(k => mapa[k] || 0));
       return chaves.map(k => `
         <li class="ranking-item">
-          <span class="ranking-nome">${rotulo(k)}</span>
-          <span class="ranking-barra${perigo ? ' perigo' : ''}"><i style="width:${Math.round(((mapa[k] || 0) / max) * 100)}%"></i></span>
+          <span class="ranking-nome">${k}</span>
+          <span class="ranking-barra"><i style="width:${Math.round(((mapa[k] || 0) / max) * 100)}%"></i></span>
           <span class="ranking-valor">${mapa[k] || 0}</span>
         </li>`).join('');
     }
 
+    // O Relatório mostra só a artilharia da pelada (zera a cada nova pelada).
+    // Vitórias, derrotas e gols por time continuam sendo contados e vão para o Histórico.
     function atualizarRelatorioUI() {
-      const timesVit = ordenarPorValor(vitoriasTimes);
-      document.getElementById('topTime').innerHTML = timesVit.length
-        ? `${nomeTime(timesVit[0])} <em>· ${plural(vitoriasTimes[timesVit[0]], 'vitória', 'vitórias')}</em>`
-        : 'Nenhuma partida jogada';
-      document.getElementById('rankingTimesList').innerHTML = renderRanking(vitoriasTimes, timesVit, { rotulo: nomeTime });
-
-      const jogVit = ordenarPorValor(vitoriasJogadores);
-      document.getElementById('topJogador').innerHTML = jogVit.length
-        ? `${jogVit[0]} <em>· ${plural(vitoriasJogadores[jogVit[0]], 'vitória', 'vitórias')}</em>`
-        : 'Nenhum jogador pontuou';
-      document.getElementById('rankingJogadoresList').innerHTML = renderRanking(vitoriasJogadores, jogVit);
-
       const art = ordenarPorValor(golsJogadores);
       document.getElementById('topArtilheiro').innerHTML = art.length
         ? `${art[0]} <em>· ${plural(golsJogadores[art[0]], 'gol', 'gols')}</em>`
         : 'Sem gols ainda';
       document.getElementById('rankingArtilhariaList').innerHTML = renderRanking(golsJogadores, art);
-
-      const timesGols = ordenarPorValor(golsTime);
-      document.getElementById('topGolsTime').innerHTML = timesGols.length
-        ? `${nomeTime(timesGols[0])} <em>· ${plural(golsTime[timesGols[0]], 'gol', 'gols')}</em>`
-        : 'Sem gols ainda';
-      document.getElementById('rankingGolsList').innerHTML = renderRanking(golsTime, timesGols, { rotulo: nomeTime });
-
-      document.getElementById('rankingDerrotasTimesList').innerHTML =
-        renderRanking(derrotasTimes, ordenarPorValor(derrotasTimes), { rotulo: nomeTime, perigo: true });
-      document.getElementById('rankingDerrotasJogadoresList').innerHTML =
-        renderRanking(derrotasJogadores, ordenarPorValor(derrotasJogadores), { perigo: true });
     }
 
     // --------------------------------
