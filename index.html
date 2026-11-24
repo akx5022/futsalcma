@@ -291,6 +291,8 @@
     }
     button:active { transform: scale(0.98); filter: brightness(0.96); }
     button.btn-danger { background: var(--danger); color: #fff; width: auto; padding: 7px 12px; font-size: 0.8rem; border-radius: 9px; }
+    button.btn-editar { background: var(--info); color: #fff; width: auto; padding: 7px 12px; font-size: 0.8rem; border-radius: 9px; }
+    .player-acoes { display: flex; gap: 6px; flex-shrink: 0; }
     button.btn-blue { background: var(--info); color: #fff; padding: 12px; font-size: 0.9rem; }
     button.btn-warning { background: var(--warning); color: #201400; padding: 12px; font-size: 0.9rem; }
 
@@ -1977,7 +1979,10 @@
         html += `
           <li class="player-item">
             <span>${jogador}</span>
-            <button class="btn-danger" onclick="removerJogador(${indexTime}, ${indexJogador})">Sair 🚶</button>
+            <span class="player-acoes">
+              <button class="btn-editar" onclick="editarJogador(${indexTime}, ${indexJogador})">Editar ✏️</button>
+              <button class="btn-danger" onclick="removerJogador(${indexTime}, ${indexJogador})">Sair 🚶</button>
+            </span>
           </li>
         `;
       });
@@ -1996,6 +2001,47 @@
         atualizarTela();
         salvarEstado();
       }
+    }
+
+    // Renomeia um jogador já em jogo/fila e leva junto as estatísticas e o pagamento dele
+    function editarJogador(indexTime, indexJogador) {
+      const antigo = times[indexTime].jogadores[indexJogador];
+      const digitado = prompt('Novo nome do jogador:', antigo);
+      if (digitado === null) return; // cancelou
+      const novo = limparNome(digitado);
+      if (!novo) return alert('Digite um nome válido!');
+      if (novo === antigo) return;
+
+      const jaEmJogo = times.some(t => t.jogadores.includes(novo));
+      if (jaEmJogo) return alert(`Já existe um jogador chamado ${novo} nos times.`);
+
+      snapshotEstado();
+      times[indexTime].jogadores[indexJogador] = novo;
+
+      // Vitórias/derrotas: soma no nome novo e apaga o antigo
+      [vitoriasJogadores, derrotasJogadores].forEach(mapa => {
+        if (mapa[antigo] !== undefined) {
+          mapa[novo] = (mapa[novo] || 0) + mapa[antigo];
+          delete mapa[antigo];
+        }
+      });
+
+      // Pagamento: mantém o status do antigo (mensalista no nome novo = pago)
+      if (pagamentos[antigo] !== undefined) {
+        if (pagamentos[novo] !== 'pago') pagamentos[novo] = pagamentos[antigo];
+        delete pagamentos[antigo];
+      }
+      if (ehMensalista(novo)) pagamentos[novo] = 'pago';
+      registrarPagante(novo);
+
+      // Nível: se o nome novo ainda não tem estrelas, herda as do antigo
+      if (estrelas[antigo] !== undefined && estrelas[novo] === undefined) {
+        estrelas[novo] = estrelas[antigo];
+      }
+
+      atualizarTela();
+      atualizarListaPagantesUI();
+      salvarEstado();
     }
 
     function recomporTimes() {
