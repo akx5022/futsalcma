@@ -44,7 +44,7 @@ test('gol que fecha a partida (7e2) comemora GOL e depois VENCEU', () => {
   const app = carregarApp();
   montarPartida(app.run);
   const celebrados = espiarCelebracoes(app.run);
-  app.run('golsA = 1; marcarGol(0)');
+  app.run('golsA = 1; marcarGolJogador(0, 0)');
   assert.deepEqual(celebrados().map(e => e.tipo), ['gol', 'vitoria']);
   assert.deepEqual(app.pegar('ultimoEvento.eventos.map(e => e.tipo)'), ['gol', 'vitoria']);
   assert.deepEqual(app.alertas, []);

@@ -288,8 +288,15 @@
     }
     button:active { transform: scale(0.98); filter: brightness(0.96); }
     button.btn-danger { background: var(--danger); color: #fff; width: auto; padding: 7px 12px; font-size: 0.8rem; border-radius: 9px; }
-    button.btn-editar { background: var(--info); color: #fff; width: auto; padding: 7px 12px; font-size: 0.8rem; border-radius: 9px; }
-    .player-acoes { display: flex; gap: 6px; flex-shrink: 0; }
+    .jogadores { list-style: none; padding: 0; margin: 0; }
+    .jogador { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.95rem; }
+    .jogador:last-child { border-bottom: none; }
+    .jogador-nome { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .jogador-acoes { display: flex; gap: 6px; flex-shrink: 0; }
+    button.btn-icone { width: 34px; height: 34px; padding: 0; display: inline-grid; place-items: center; border-radius: 11px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); color: #cfd4db; font-size: 1rem; }
+    button.btn-gol-jog { background: #c6ff00; border-color: #c6ff00; color: #000; }
+    button.btn-sair { color: #ff4d4d; }
+    .selo-gol { font-size: 0.72rem; font-weight: 700; color: #c6ff00; background: rgba(198,255,0,.12); border: 1px solid rgba(198,255,0,.3); padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
     button.btn-blue { background: var(--info); color: #fff; padding: 12px; font-size: 0.9rem; }
     button.btn-warning { background: var(--warning); color: #201400; padding: 12px; font-size: 0.9rem; }
 
@@ -518,6 +525,16 @@
         <div class="stat-box">
           <div class="stat-title">🥇 Jogador Mais Vitorioso</div>
           <div class="stat-value" id="topJogador">Nenhum jogador em destaque</div>
+        </div>
+
+        <div class="stat-box">
+          <div class="stat-title">⚽ Artilheiro da Pelada</div>
+          <div class="stat-value" id="topArtilheiro">Sem gols ainda</div>
+        </div>
+
+        <div style="margin-top: 15px;">
+          <h3 style="font-size:0.95rem; color:#aaa; margin-bottom:8px;">⚽ Artilharia:</h3>
+          <ul class="ranking-list" id="rankingArtilhariaList"></ul>
         </div>
 
         <div style="margin-top: 15px;">
@@ -764,6 +781,8 @@
     let golsTime = {};            // gols totais por id de time
     let derrotasTimes = {};       // derrotas por id de time
     let derrotasJogadores = {};   // derrotas por jogador
+    let golsJogadores = {};       // gols de cada jogador na pelada (artilharia)
+    let golsPartida = {};         // gols de cada jogador na partida atual (zera a cada partida)
 
     // Cores escolhidas pelo admin (id do time -> chave de cor). Vazio = cor padrão pela ordem.
     let coresTimes = {};
@@ -814,7 +833,7 @@
     function coletarEstado() {
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
-        golsA, golsB, mensalistas,
+        golsA, golsB, mensalistas, golsJogadores, golsPartida,
         golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas, ultimoEvento,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
@@ -831,6 +850,8 @@
       vitoriasJogadores = estado.vitoriasJogadores || {};
       golsA = estado.golsA || 0;
       golsB = estado.golsB || 0;
+      golsJogadores = estado.golsJogadores || {};
+      golsPartida = estado.golsPartida || {};
       if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
       golsTime = estado.golsTime || {};
       derrotasTimes = estado.derrotasTimes || {};
@@ -1108,7 +1129,7 @@
       await arquivarPelada(); // guarda um resumo no histórico antes de zerar
       times = []; contadorTimes = 1; pagamentos = {};
       vitoriasTimes = {}; vitoriasJogadores = {};
-      golsTime = {}; derrotasTimes = {}; derrotasJogadores = {}; coresTimes = {};
+      golsTime = {}; derrotasTimes = {}; derrotasJogadores = {}; coresTimes = {}; golsJogadores = {}; golsPartida = {};
       golsA = 0; golsB = 0; // mantém a lista de mensalistas configurada
       const input = document.getElementById('inputNomes'); if (input) input.value = '';
       aplicarEstado(coletarEstado());
@@ -1122,7 +1143,7 @@
       if (!sb || !houveJogo) return;
 
       const resumo = {
-        vitoriasTimes, vitoriasJogadores, golsTime, derrotasTimes, derrotasJogadores,
+        vitoriasTimes, vitoriasJogadores, golsTime, derrotasTimes, derrotasJogadores, golsJogadores,
         pagamentos,
         totalGols: Object.values(golsTime).reduce((s, g) => s + g, 0),
         qtdJogadores: Object.keys(vitoriasJogadores).length
@@ -1171,6 +1192,7 @@
       const jc = melhorChave(r.vitoriasJogadores);
       const tc = melhorChave(r.vitoriasTimes);
       const tg = melhorChave(r.golsTime);
+      const ja = melhorChave(r.golsJogadores);
       const campeaoJog = jc ? `${jc.chave} (${jc.valor} vit.)` : '—';
       const campeaoTime = tc ? `${nomeTime(tc.chave)} (${tc.valor} vit.)` : '—';
       const artilheiroTime = tg ? `${nomeTime(tg.chave)} (${tg.valor} gols)` : '—';
@@ -1180,6 +1202,7 @@
           <div style="font-weight:bold; color:#28a745; margin-bottom:6px;">📅 ${dataFmt}</div>
           <div class="ranking-item"><span>🥇 Jogador campeão</span><strong>${campeaoJog}</strong></div>
           <div class="ranking-item"><span>🏆 Time campeão</span><strong>${campeaoTime}</strong></div>
+          <div class="ranking-item"><span>⚽ Artilheiro</span><strong>${ja ? `${ja.chave} (${ja.valor} gols)` : '—'}</strong></div>
           <div class="ranking-item"><span>⚽ Time com mais gols</span><strong>${artilheiroTime}</strong></div>
           <div class="ranking-item"><span>⚽ Total de gols</span><strong>${total}</strong></div>
         </div>
@@ -1663,6 +1686,15 @@
       });
       listJogadoresElement.innerHTML = htmlJogadores || '<li style="color:#777;">Sem dados</li>';
 
+      // ----- Artilharia (gols por jogador) -----
+      const artilharia = ordenarPorValor(golsJogadores);
+      document.getElementById('topArtilheiro').innerText = artilharia.length
+        ? `${artilharia[0]} (${golsJogadores[artilharia[0]]} ${golsJogadores[artilharia[0]] === 1 ? 'gol' : 'gols'})`
+        : 'Sem gols ainda';
+      document.getElementById('rankingArtilhariaList').innerHTML = artilharia.map(n =>
+        `<li class="ranking-item"><span>${n}</span><strong>${golsJogadores[n]} ${golsJogadores[n] === 1 ? 'gol' : 'gols'}</strong></li>`
+      ).join('') || '<li style="color:#777;">Sem dados</li>';
+
       // ----- Gols por time -----
       const topGolsTimeEl = document.getElementById('topGolsTime');
       const listGolsEl = document.getElementById('rankingGolsList');
@@ -1953,6 +1985,7 @@
       golsTime = {};
       derrotasTimes = {};
       derrotasJogadores = {};
+      golsJogadores = {}; golsPartida = {};
       coresTimes = {};
 
       // Padrão automático: até 12 jogadores = 10 min corridos; acima = 7 min + 2 gols
@@ -2075,14 +2108,20 @@
     // ----- PLACAR DE GOLS (7 min OU 2 gols) -----
     const GOLS_PARA_VENCER = 2;
 
-    function marcarGol(qualTime) {
-      if (times.length < 2) return;
+    // Gol marcado no jogador (só quem está em quadra: times[0] ou times[1]).
+    // Para corrigir um gol errado, use o Desfazer.
+    function marcarGolJogador(indexTime, indexJogador) {
+      if (times.length < 2 || (indexTime !== 0 && indexTime !== 1)) return;
+      const nome = times[indexTime].jogadores[indexJogador];
+      if (!nome) return;
       snapshotEstado();
-      if (qualTime === 0) golsA++; else golsB++;
-      const evGol = { tipo: 'gol', titulo: 'GOL!', sub: `${nomeTime(times[qualTime].id)} · ${golsA} × ${golsB}`, cor: '#c6ff00' };
+      if (indexTime === 0) golsA++; else golsB++;
+      golsJogadores[nome] = (golsJogadores[nome] || 0) + 1;
+      golsPartida[nome] = (golsPartida[nome] || 0) + 1;
+
+      const evGol = { tipo: 'gol', titulo: 'GOL!', sub: `${nome} · ${nomeTime(times[indexTime].id)} · ${golsA} × ${golsB}`, cor: '#c6ff00' };
 
       // 2 gols encerra a partida automaticamente — SÓ no Modo A (7 min + 2 gols).
-      // No Modo B (10 min corridos), os gols só contam para o relatório e não encerram.
       if (modoJogo === '7e2' && (golsA >= GOLS_PARA_VENCER || golsB >= GOLS_PARA_VENCER)) {
         fimDeJogo(golsA >= GOLS_PARA_VENCER ? 0 : 1, [evGol]);
       } else {
@@ -2092,20 +2131,11 @@
       }
     }
 
-    function tirarGol(qualTime) {
-      if ((qualTime === 0 && golsA > 0) || (qualTime === 1 && golsB > 0)) snapshotEstado();
-      if (qualTime === 0 && golsA > 0) golsA--;
-      else if (qualTime === 1 && golsB > 0) golsB--;
-      atualizarTela();
-      salvarEstado();
-    }
-
-    function renderControleGols(qualTime, gols) {
-      return `<div class="gol-controle">
-        <button class="btn-gol" onclick="marcarGol(${qualTime})">⚽ +Gol</button>
-        <span class="gol-num">${gols} gol${gols === 1 ? '' : 's'}</span>
-        <button class="btn-gol-menos" onclick="tirarGol(${qualTime})">−</button>
-      </div>`;
+    // Chaves de um mapa { chave: número } com valor > 0, do maior para o menor (empate: alfabética)
+    function ordenarPorValor(mapa) {
+      return Object.keys(mapa || {})
+        .filter(k => mapa[k] > 0)
+        .sort((a, b) => (mapa[b] - mapa[a]) || String(a).localeCompare(String(b)));
     }
 
     // ----- LOTAÇÃO (20 atletas / 5 times) -----
@@ -2146,14 +2176,12 @@
             ${renderBadgePartidas(timeA.partidasSeguidas || 0)}
             <h3>${nomeTime(timeA.id)} (${timeA.jogadores.length}/4)</h3>
             ${renderSeletorCor(timeA.id)}
-            ${renderControleGols(0, golsA)}
             ${renderListaJogadores(0)}
           </div>
           <div class="team-box ${getTeamClass(timeB.id)}">
             ${renderBadgePartidas(timeB.partidasSeguidas || 0)}
             <h3>${nomeTime(timeB.id)} (${timeB.jogadores.length}/4)</h3>
             ${renderSeletorCor(timeB.id)}
-            ${renderControleGols(1, golsB)}
             ${renderListaJogadores(1)}
           </div>
         `;
@@ -2198,19 +2226,22 @@
     }
 
     function renderListaJogadores(indexTime) {
-      if (!times[indexTime]) return ''; let html = '<ul class="player-list">';
+      if (!times[indexTime]) return '';
+      const emQuadra = times.length >= 2 && indexTime < 2;
+      let html = '<ul class="jogadores">';
       times[indexTime].jogadores.forEach((jogador, indexJogador) => {
+        const g = emQuadra ? (golsPartida[jogador] || 0) : 0;
         html += `
-          <li class="player-item">
-            <span>${jogador}</span>
-            <span class="player-acoes">
-              <button class="btn-editar" onclick="editarJogador(${indexTime}, ${indexJogador})">Editar ✏️</button>
-              <button class="btn-danger" onclick="removerJogador(${indexTime}, ${indexJogador})">Sair 🚶</button>
+          <li class="jogador" data-chave="j:${jogador}">
+            <span class="jogador-nome">${jogador}${g > 0 ? ` <span class="selo-gol" data-gols="${g}">⚽ ${g}</span>` : ''}</span>
+            <span class="jogador-acoes">
+              ${emQuadra ? `<button class="btn-icone btn-gol-jog" onclick="marcarGolJogador(${indexTime}, ${indexJogador})" aria-label="Gol de ${jogador}">⚽</button>` : ''}
+              <button class="btn-icone" onclick="editarJogador(${indexTime}, ${indexJogador})" aria-label="Editar ${jogador}">${icone('pencil', 16)}</button>
+              <button class="btn-icone btn-sair" onclick="removerJogador(${indexTime}, ${indexJogador})" aria-label="${jogador} foi embora">${icone('x', 16)}</button>
             </span>
-          </li>
-        `;
+          </li>`;
       });
-      html += '</ul>'; return html;
+      return html + '</ul>';
     }
 
     function removerJogador(indexTime, indexJogador) {
@@ -2242,8 +2273,8 @@
       snapshotEstado();
       times[indexTime].jogadores[indexJogador] = novo;
 
-      // Vitórias/derrotas: soma no nome novo e apaga o antigo
-      [vitoriasJogadores, derrotasJogadores].forEach(mapa => {
+      // Vitórias/derrotas/gols: soma no nome novo e apaga o antigo
+      [vitoriasJogadores, derrotasJogadores, golsJogadores, golsPartida].forEach(mapa => {
         if (mapa[antigo] !== undefined) {
           mapa[novo] = (mapa[novo] || 0) + mapa[antigo];
           delete mapa[antigo];
@@ -2336,7 +2367,7 @@
         times.push(teamPerdedor);
       }
 
-      golsA = 0; golsB = 0; // zera o placar para a próxima partida
+      golsA = 0; golsB = 0; golsPartida = {}; // zera o placar para a próxima partida
       registrarEventos([...eventosAntes, evVitoria]);
       resetTimer();
       atualizarTela();
@@ -2385,7 +2416,7 @@
       times.push(frente);
       times.push(atras);
 
-      golsA = 0; golsB = 0; // zera o placar para a próxima partida
+      golsA = 0; golsB = 0; golsPartida = {}; // zera o placar para a próxima partida
       registrarEventos([evEmpate]);
       resetTimer();
       atualizarTela();
