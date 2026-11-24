@@ -291,7 +291,7 @@
     @keyframes celTituloSuave { 0%, 15% { opacity: 0; transform: scale(.9); } 35%, 78% { opacity: 1; transform: none; } 95%, 100% { opacity: 0; } }
     #mainContainer.tremendo { animation: tremer .45s cubic-bezier(.36,.07,.19,.97) .3s both; }
     @keyframes tremer {
-      15% { transform: translateX(-6px) rotate(-1deg); } 30% { transform: translateX(6px) rotate(1deg); }
+      15% { transform: translateX(-6px); } 30% { transform: translateX(6px); }
       45% { transform: translateX(-4px); } 60% { transform: translateX(3px); } 75% { transform: translateX(-1px); } 100% { transform: none; }
     }
     .celebracao.reduzido, .celebracao.reduzido .cel-titulo, .celebracao.reduzido .cel-sub { animation: celFade 1.2s ease both; }
@@ -633,8 +633,13 @@
       vitoriasJogadores = estado.vitoriasJogadores || {};
       golsA = estado.golsA || 0;
       golsB = estado.golsB || 0;
-      golsJogadores = estado.golsJogadores || {};
-      golsPartida = estado.golsPartida || {};
+      // Celular com a versão antiga não manda estas chaves: mantém o que já temos
+      // enquanto a pelada continua (ainda há times). Sem times, zera.
+      const temTimesNoEstado = Array.isArray(estado.times) && estado.times.length > 0;
+      if ('golsJogadores' in estado) golsJogadores = estado.golsJogadores || {};
+      else if (!temTimesNoEstado) golsJogadores = {};
+      if ('golsPartida' in estado) golsPartida = estado.golsPartida || {};
+      else if (!temTimesNoEstado || (!estado.golsA && !estado.golsB)) golsPartida = {};
       if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
       golsTime = estado.golsTime || {};
       derrotasTimes = estado.derrotasTimes || {};
@@ -657,6 +662,7 @@
       document.getElementById('queueArea').style.display = temJogo ? 'block' : 'none';
 
       if (temJogo) atualizarTela();
+      else { chavesVistas = null; quadraAnterior = null; placarAnterior = null; golsPartidaAnterior = null; }
       atualizarListaPagantesUI();
       atualizarMensalistasUI();
       atualizarRelatorioUI();
@@ -770,6 +776,7 @@
     function comemorarSeNovo(ev) {
       if (!ev || typeof ev.ts !== 'number' || ev.ts <= ultimoEventoVisto) return;
       ultimoEventoVisto = ev.ts;
+      if (document.hidden) return; // em segundo plano: não acumula comemorações
       (Array.isArray(ev.eventos) ? ev.eventos : []).forEach(e => celebrar(e));
     }
 
@@ -1160,7 +1167,11 @@
       if (!ind || !ativa) return;
       ind.style.width = ativa.offsetWidth + 'px';
       ind.style.transform = `translateX(${ativa.offsetLeft}px)`;
-      if (ativa.scrollIntoView) ativa.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+      const abas = document.getElementById('abas');
+      if (abas) {
+        const alvo = ativa.offsetLeft - (abas.clientWidth - ativa.offsetWidth) / 2;
+        abas.scrollLeft = Math.max(0, alvo);
+      }
     }
 
     function copiarChavePix() {
@@ -1578,6 +1589,8 @@
 
     // Ajusta o cronômetro local ao estado recebido da nuvem (outro aparelho mexeu)
     function sincronizarTimerLocal() {
+      // Outro celular reiniciou/mudou o tempo depois que a sirene tocou aqui: para a sirene e a borda vermelha
+      if (ultimoAlarmeFim && tempoFinalTimestamp !== ultimoAlarmeFim) pararAlarme();
       if (rodando && tempoFinalTimestamp) {
         iniciarTickLocal();
       } else {
