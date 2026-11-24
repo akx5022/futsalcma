@@ -361,6 +361,7 @@
       <div class="aba-conteudo" id="abaRelatorioView">
         <div class="stat"><small>Artilheiro da pelada</small><div class="stat-valor" id="topArtilheiro">—</div></div>
         <div class="rotulo">Artilharia <span>zera a cada pelada</span></div><ul class="ranking" id="rankingArtilhariaList"></ul>
+        <button class="btn-whats btn-bloco" style="margin-top:14px;" onclick="enviarArtilharia()"><span data-icone="message" data-tam="16"></span>Enviar artilharia (WhatsApp)</button>
       </div>
 
       <!-- Histórico -->
@@ -1444,6 +1445,18 @@
           <span class="ranking-barra"><i style="width:${Math.round(((mapa[k] || 0) / max) * 100)}%"></i></span>
           <span class="ranking-valor">${mapa[k] || 0}</span>
         </li>`).join('');
+    }
+
+    // Abre o WhatsApp com a artilharia da pelada do dia (igual à cobrança)
+    function enviarArtilharia() {
+      const art = ordenarPorValor(golsJogadores);
+      if (!art.length) return alert('Ninguém fez gol ainda nesta pelada.');
+
+      const medalhas = ['🥇', '🥈', '🥉'];
+      let msg = '⚽ *Futebol de Segunda da Sal CMA*\n\n';
+      msg += `🥅 *Artilharia da pelada* (${new Date().toLocaleDateString('pt-BR')}):\n`;
+      art.forEach((n, i) => { msg += `${medalhas[i] || `${i + 1}.`} ${n} — ${plural(golsJogadores[n], 'gol', 'gols')}\n`; });
+      window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
     }
 
     // O Relatório mostra só a artilharia da pelada (zera a cada nova pelada).
