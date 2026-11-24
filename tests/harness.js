@@ -67,7 +67,6 @@ function carregarApp({ confirmar = true, prompt: respostaPrompt = null, search =
     },
     navigator: { vibrate: () => true, clipboard: { writeText: () => Promise.resolve() } },
     matchMedia: () => ({ matches: false, addEventListener() {} }),
-    lucide: { createIcons() {} },
     document: {
       getElementById: el,
       querySelector: () => elementoFalso(),
