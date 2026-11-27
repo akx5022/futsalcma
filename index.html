@@ -188,6 +188,9 @@
     .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; font-size: 0.8rem; border: 1px solid var(--ln); border-radius: var(--r-pill); background: var(--s2); }
     .chip button { width: 22px; height: 22px; padding: 0; border: none; background: transparent; color: var(--dg); }
+    .sugestoes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .chip-sugestao { padding: 7px 12px; font-size: 0.78rem; background: var(--s2); }
+    #buscaJogador { margin-bottom: 2px; }
     .pagante { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--ln); font-size: 0.9rem; }
     .pagante:last-child { border-bottom: none; }
     .pagante-nome.devendo { color: var(--dg); }
@@ -372,7 +375,7 @@
 
       <!-- Cobrança -->
       <div class="aba-conteudo" id="abaCobrancaView">
-        <p class="texto-mu">Pagamentos das últimas 3 peladas (atual + 2 anteriores). Toque em Pago/Deve para alternar.</p>
+        <p class="texto-mu">Pagamentos da pelada atual e da anterior. Toque em Pago/Deve para alternar.</p>
         <div id="conteudoCobranca"><p class="vazio">Abra esta aba para carregar...</p></div>
       </div>
 
@@ -474,7 +477,11 @@
     <!-- Cadastro inicial -->
     <section class="card" id="setup">
       <h2 class="card-titulo">Cadastrar jogadores</h2>
-      <p class="texto-mu">Cole os nomes dos que já chegaram, um por linha.</p>
+      <p class="texto-mu">Busque na lista (toque no nome) ou cole os nomes, um por linha.</p>
+      <input type="text" id="buscaJogador" placeholder="Buscar jogador (ex.: sa)..." autocomplete="off"
+        oninput="buscarJogador()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); adicionarDaBusca(); }" />
+      <div id="sugestoesJogador" class="sugestoes"></div>
+      <div id="selecionadosJogador" class="chips" style="margin-bottom:12px;"></div>
       <textarea id="inputNomes" placeholder="JOÃO&#10;PEDRO&#10;LUCAS..."></textarea>
       <button class="btn-primario btn-bloco" onclick="gerarSorteio()"><span data-icone="shuffle" data-tam="16"></span>Sortear times (4 por time)</button>
     </section>
@@ -907,24 +914,40 @@
     }
 
     // Começa uma pelada nova (apaga os dados de TODOS)
+    let iniciandoNovaPelada = false; // evita arquivar 2x com toque duplo (a gravação na nuvem demora)
     async function novaPelada() {
+      if (iniciandoNovaPelada) return;
       if (!confirm('Iniciar uma NOVA pelada? A pelada atual será salva no 📅 Histórico e os dados serão zerados para TODOS.')) return;
-      snapshotEstado(); // permite desfazer um "Nova Pelada" acidental
-      await arquivarPelada(); // guarda um resumo no histórico antes de zerar
-      times = []; contadorTimes = 1; pagamentos = {};
-      vitoriasTimes = {}; vitoriasJogadores = {};
-      golsTime = {}; derrotasTimes = {}; derrotasJogadores = {}; coresTimes = {}; golsJogadores = {}; golsPartida = {};
-      golsA = 0; golsB = 0; // mantém a lista de mensalistas configurada
-      const input = document.getElementById('inputNomes'); if (input) input.value = '';
-      aplicarEstado(coletarEstado());
-      salvarEstado();
+      iniciandoNovaPelada = true;
+      try {
+        const ok = await arquivarPelada(); // guarda um resumo no histórico antes de zerar
+        if (ok === false) return;          // usuário cancelou (já havia pelada arquivada hoje)
+        snapshotEstado(); // permite desfazer um "Nova Pelada" acidental
+        times = []; contadorTimes = 1; pagamentos = {};
+        vitoriasTimes = {}; vitoriasJogadores = {};
+        golsTime = {}; derrotasTimes = {}; derrotasJogadores = {}; coresTimes = {}; golsJogadores = {}; golsPartida = {};
+        golsA = 0; golsB = 0; // mantém a lista de mensalistas configurada
+        const input = document.getElementById('inputNomes'); if (input) input.value = '';
+        selecionadosSorteio = []; renderSelecionados();
+        aplicarEstado(coletarEstado());
+        salvarEstado();
+      } finally {
+        iniciandoNovaPelada = false;
+      }
     }
 
-    // Arquiva um resumo da pelada atual no histórico (Supabase)
+    function dataLocalISO() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // Arquiva um resumo da pelada atual no histórico (Supabase).
+    // Se já existe pelada arquivada HOJE, avisa e atualiza esse registro em vez de duplicar.
+    // Retorna false se o usuário cancelar.
     async function arquivarPelada() {
       const houveJogo = Object.values(vitoriasTimes).some(v => v > 0) ||
                         Object.values(golsTime).some(g => g > 0);
-      if (!sb || !houveJogo) return;
+      if (!sb || !houveJogo) return true;
 
       const resumo = {
         vitoriasTimes, vitoriasJogadores, golsTime, derrotasTimes, derrotasJogadores, golsJogadores,
@@ -933,10 +956,26 @@
         qtdJogadores: Object.keys(vitoriasJogadores).length
       };
       try {
-        await sb.from('pelada_historico').insert({ resumo });
+        const { data: ultima } = await sb.from('pelada_historico')
+          .select('id, data')
+          .order('data', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(1);
+        const hoje = [dataLocalISO(), new Date().toISOString().slice(0, 10)];
+        if (ultima && ultima[0] && hoje.includes(ultima[0].data)) {
+          const atualizar = confirm('⚠️ Já existe uma pelada arquivada HOJE no Histórico.\n\n' +
+            'Isso costuma ser engano (Nova pelada tocada 2 vezes ou depois de um Desfazer).\n\n' +
+            'OK = atualizar o registro de hoje com os dados atuais (sem duplicar) e iniciar a nova pelada.\n' +
+            'Cancelar = não iniciar nova pelada.');
+          if (!atualizar) return false;
+          await sb.from('pelada_historico').update({ resumo }).eq('id', ultima[0].id);
+        } else {
+          await sb.from('pelada_historico').insert({ resumo });
+        }
       } catch (e) {
         console.warn('Falha ao arquivar pelada:', e);
       }
+      return true;
     }
 
     // Busca e mostra o histórico de peladas anteriores
@@ -951,7 +990,7 @@
           .select('id, data, resumo')
           .order('data', { ascending: false })
           .order('id', { ascending: false })
-          .limit(50);
+          .limit(2); // só as duas últimas
         if (error) throw error;
         if (!data || data.length === 0) {
           c.innerHTML = '<p class="vazio">Nenhuma pelada arquivada ainda. O histórico é criado quando você inicia uma nova pelada.</p>';
@@ -974,19 +1013,14 @@
       const r = item.resumo || {};
       const dataFmt = item.data ? item.data.split('-').reverse().join('/') : '';
       const jc = melhorChave(r.vitoriasJogadores);
-      const tc = melhorChave(r.vitoriasTimes);
-      const tg = melhorChave(r.golsTime);
       const ja = melhorChave(r.golsJogadores);
       const linha = (rotulo, valor) =>
         `<div class="ranking-item"><span style="color:var(--mu)">${rotulo}</span><strong>${valor}</strong></div>`;
       return `
         <div class="hist">
           <div class="hist-data">${dataFmt}</div>
-          ${linha('Jogador campeão', jc ? `${jc.chave} (${jc.valor} vit.)` : '—')}
-          ${linha('Time campeão', tc ? `${nomeTime(tc.chave)} (${tc.valor} vit.)` : '—')}
+          ${linha('Jogador mais vitorioso', jc ? `${jc.chave} (${jc.valor} vit.)` : '—')}
           ${linha('Artilheiro', ja ? `${ja.chave} (${ja.valor} gols)` : '—')}
-          ${linha('Time com mais gols', tg ? `${nomeTime(tg.chave)} (${tg.valor} gols)` : '—')}
-          ${linha('Total de gols', r.totalGols != null ? r.totalGols : '—')}
         </div>`;
     }
 
@@ -1007,7 +1041,7 @@
       // Últimas arquivadas, completando até 3 no total
       if (sb) {
         try {
-          const limite = peladas.length > 0 ? 2 : 3;
+          const limite = peladas.length > 0 ? 1 : 2; // pelada atual + a última
           const { data, error } = await sb.from('pelada_historico')
             .select('id, data, resumo')
             .order('data', { ascending: false })
@@ -1721,12 +1755,72 @@
       return teams.map(t => t.jogadores);
     }
 
+    // ===== LISTA PRONTA DE JOGADORES (busca no cadastro inicial) =====
+    const LISTA_JOGADORES = [
+      // Coloque aqui os nomes fixos, ex.: 'SAMUEL', 'SAMUEL FILHO', ...
+    ];
+    let selecionadosSorteio = [];
+
+    function semAcento(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
+
+    // Nomes da lista pronta + quem já tem nível/pagamento, que comecem (em alguma palavra) com o texto digitado
+    function sugestoesPara(texto) {
+      const q = semAcento(texto.trim());
+      if (!q) return [];
+      const todos = Array.from(new Set([...LISTA_JOGADORES.map(limparNome), ...nomesConhecidos()]));
+      return todos
+        .filter(n => !selecionadosSorteio.includes(n) && semAcento(n).split(/\s+/).some(p => p.startsWith(q)))
+        .sort((a, b) => a.localeCompare(b))
+        .slice(0, 15);
+    }
+
+    function buscarJogador() {
+      const inp = document.getElementById('buscaJogador');
+      const box = document.getElementById('sugestoesJogador');
+      const achados = sugestoesPara(inp.value);
+      if (!inp.value.trim()) { box.innerHTML = ''; return; }
+      box.innerHTML = achados.length
+        ? achados.map(n => `<button class="chip-sugestao" onclick="selecionarJogador('${String(n).replace(/'/g, "\\'")}')">${n}</button>`).join('')
+        : '<span class="vazio" style="margin:0;">Nenhum nome na lista — Enter adiciona assim mesmo</span>';
+    }
+
+    // Enter: pega a primeira sugestão; se não houver, adiciona o nome digitado
+    function adicionarDaBusca() {
+      const inp = document.getElementById('buscaJogador');
+      const achados = sugestoesPara(inp.value);
+      const nome = achados.length ? achados[0] : limparNome(inp.value);
+      if (nome) selecionarJogador(nome);
+    }
+
+    function selecionarJogador(nome) {
+      if (!selecionadosSorteio.includes(nome)) selecionadosSorteio.push(nome);
+      const inp = document.getElementById('buscaJogador');
+      inp.value = '';
+      inp.focus();
+      buscarJogador();
+      renderSelecionados();
+    }
+
+    function removerSelecionado(nome) {
+      selecionadosSorteio = selecionadosSorteio.filter(n => n !== nome);
+      renderSelecionados();
+    }
+
+    function renderSelecionados() {
+      const c = document.getElementById('selecionadosJogador');
+      if (!c) return;
+      c.innerHTML = selecionadosSorteio.map(n =>
+        `<span class="chip">${n}<button onclick="removerSelecionado('${String(n).replace(/'/g, "\\'")}')" aria-label="Retirar ${n}">${icone('x', 14)}</button></span>`
+      ).join('');
+    }
+
     function gerarSorteio() {
       const texto = document.getElementById('inputNomes').value.trim();
-      if (!texto) return alert("Digite os nomes dos jogadores!");
-
-      let nomes = texto.split('\n').map(limparNome).filter(n => n.length > 0);
+      // Nomes colados + nomes escolhidos na busca (sem repetir)
+      let nomes = Array.from(new Set([...texto.split('\n').map(limparNome), ...selecionadosSorteio].filter(n => n.length > 0)));
+      if (!nomes.length) return alert("Digite os nomes dos jogadores!");
       if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
+      selecionadosSorteio = []; renderSelecionados();
 
       snapshotEstado();
       times = []; contadorTimes = 1;
