@@ -191,6 +191,9 @@
     .sugestoes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
     .chip-sugestao { padding: 7px 12px; font-size: 0.78rem; background: var(--s2); }
     #buscaJogador { margin-bottom: 2px; }
+    .quem-linha { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--ln); }
+    .quem-nome { flex: 0 0 38%; font-weight: 700; font-size: 0.85rem; overflow-wrap: anywhere; }
+    .quem-linha select { flex: 1; min-width: 0; font-family: inherit; font-size: 16px; color: var(--tx); background: var(--s2); border: 1px solid var(--ln); border-radius: 12px; padding: 10px; }
     .pagante { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--ln); font-size: 0.9rem; }
     .pagante:last-child { border-bottom: none; }
     .pagante-nome.devendo { color: var(--dg); }
@@ -408,11 +411,10 @@
   <div class="modal-fundo" id="quemModal">
     <div class="modal" style="max-width:440px;">
       <div class="modal-topo"><h2 id="quemTitulo">Quem é?</h2></div>
-      <p class="texto-mu">Esse nome não está na lista de jogadores. Toque em quem é, cadastre como novo ou tire da pelada.</p>
-      <input type="text" id="quemBusca" placeholder="Buscar na lista..." autocomplete="off" oninput="renderQuemOpcoes()" />
-      <div id="quemOpcoes" class="sugestoes" style="max-height:220px; overflow-y:auto;"></div>
-      <button class="btn-primario btn-bloco" id="quemCadastrar" onclick="quemCadastrarNovo()">Cadastrar como novo jogador</button>
-      <button class="btn-bloco" style="margin-top:8px; background:transparent; color:var(--mu);" onclick="quemPular()">Tirar (não vai jogar)</button>
+      <p class="texto-mu">Estes nomes não estão na lista de jogadores. Para cada um, escolha quem é, cadastre como novo ou tire da pelada.</p>
+      <div id="quemLinhas"></div>
+      <button class="btn-primario btn-bloco" style="margin-top:14px;" onclick="confirmarQuem()">Confirmar</button>
+      <button class="btn-bloco" style="margin-top:8px; background:transparent; color:var(--mu);" onclick="cancelarQuem()">Cancelar</button>
     </div>
   </div>
 
@@ -1817,47 +1819,67 @@
     function resolverComPergunta(nomes, depois) {
       quemResolvidos = []; quemFila = []; quemDepois = depois;
       nomes.forEach(n => { const r = resolverNome(n); if (r) adicionarResolvido(r); else quemFila.push(n); });
-      proximoQuem();
+      if (!quemFila.length) return finalizarQuem();
+      renderQuem();
+      document.getElementById('quemModal').classList.add('aberto');
     }
 
     function adicionarResolvido(n) { if (!quemResolvidos.includes(n)) quemResolvidos.push(n); }
 
-    function proximoQuem() {
-      const modal = document.getElementById('quemModal');
-      if (!quemFila.length) {
-        modal.classList.remove('aberto');
-        const cb = quemDepois; quemDepois = null;
-        if (cb) cb(quemResolvidos.slice());
-        return;
-      }
-      const nome = quemFila[0];
-      document.getElementById('quemTitulo').innerText = `Quem é "${nome}"?`;
-      document.getElementById('quemCadastrar').innerText = `Cadastrar "${nome}" como novo jogador`;
-      const busca = document.getElementById('quemBusca');
-      busca.value = semAcento(nome).split(/\s+/)[0].slice(0, 3);
-      if (!filtrarLista(busca.value).length) busca.value = '';
-      renderQuemOpcoes();
-      modal.classList.add('aberto');
+    // Todos os nomes desconhecidos de uma vez, cada um com uma lista para escolher
+    function renderQuem() {
+      const lista = listaCadastrada();
+      document.getElementById('quemTitulo').innerText = quemFila.length === 1
+        ? `Quem é "${quemFila[0]}"?` : `${quemFila.length} nomes não estão na lista`;
+      document.getElementById('quemLinhas').innerHTML = quemFila.map((nome, i) => {
+        // Parecidos (mesmas 3 primeiras letras) primeiro, depois o resto da lista
+        const parecidos = filtrarLista(semAcento(nome).split(/\s+/)[0].slice(0, 3));
+        const resto = lista.filter(n => !parecidos.includes(n));
+        const opcao = n => `<option value="${n}">${n}</option>`;
+        return `
+          <div class="quem-linha">
+            <span class="quem-nome">${nome}</span>
+            <select id="quemSel${i}">
+              <option value="">— escolha —</option>
+              ${parecidos.length ? `<optgroup label="Parecidos">${parecidos.map(opcao).join('')}</optgroup>` : ''}
+              <option value="__novo__">➕ Cadastrar "${nome}" como novo</option>
+              <option value="__tirar__">✕ Tirar (não vai jogar)</option>
+              <optgroup label="Lista">${resto.map(opcao).join('')}</optgroup>
+            </select>
+          </div>`;
+      }).join('');
     }
 
-    function renderQuemOpcoes() {
-      const q = document.getElementById('quemBusca').value;
-      const lista = q.trim() ? filtrarLista(q) : listaCadastrada();
-      document.getElementById('quemOpcoes').innerHTML = lista.length
-        ? lista.map(n => `<button class="chip-sugestao" onclick="quemEscolher('${String(n).replace(/'/g, "\\'")}')">${n}</button>`).join('')
-        : '<span class="vazio" style="margin:0;">Ninguém na lista com esse nome</span>';
+    function confirmarQuem() {
+      const escolhas = quemFila.map((_, i) => document.getElementById('quemSel' + i).value);
+      const falta = escolhas.findIndex(v => !v);
+      if (falta >= 0) return alert(`Escolha quem é "${quemFila[falta]}".`);
+      let cadastrouNovo = false;
+      escolhas.forEach((v, i) => {
+        const nome = quemFila[i];
+        if (v === '__tirar__') return;
+        if (v === '__novo__') {
+          if (!listaCadastrada().includes(nome)) { jogadoresExtras.push(nome); cadastrouNovo = true; }
+          adicionarResolvido(nome);
+        } else {
+          adicionarResolvido(v);
+        }
+      });
+      if (cadastrouNovo) salvarEstado();
+      finalizarQuem();
     }
 
-    function quemEscolher(n) { adicionarResolvido(n); quemFila.shift(); proximoQuem(); }
-
-    function quemCadastrarNovo() {
-      const n = quemFila.shift();
-      if (!listaCadastrada().includes(n)) { jogadoresExtras.push(n); salvarEstado(); }
-      adicionarResolvido(n);
-      proximoQuem();
+    function cancelarQuem() {
+      quemFila = []; quemDepois = null;
+      document.getElementById('quemModal').classList.remove('aberto');
     }
 
-    function quemPular() { quemFila.shift(); proximoQuem(); }
+    function finalizarQuem() {
+      document.getElementById('quemModal').classList.remove('aberto');
+      quemFila = [];
+      const cb = quemDepois; quemDepois = null;
+      if (cb) cb(quemResolvidos.slice());
+    }
 
     function buscarJogador() {
       const inp = document.getElementById('buscaJogador');
