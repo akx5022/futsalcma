@@ -1767,12 +1767,11 @@
 
     function semAcento(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
 
-    // Nomes da lista pronta + quem já tem nível/pagamento, que comecem (em alguma palavra) com o texto digitado
+    // Só os nomes da lista pronta que comecem (em alguma palavra) com o texto digitado
     function sugestoesPara(texto) {
       const q = semAcento(texto.trim());
       if (!q) return [];
-      const todos = Array.from(new Set([...LISTA_JOGADORES.map(limparNome), ...nomesConhecidos()]));
-      return todos
+      return LISTA_JOGADORES.map(limparNome)
         .filter(n => !selecionadosSorteio.includes(n) && semAcento(n).split(/\s+/).some(p => p.startsWith(q)))
         .sort((a, b) => a.localeCompare(b))
         .slice(0, 15);
