@@ -155,11 +155,10 @@
     .sheet-alca { width: 40px; height: 4px; border-radius: 2px; background: var(--ln2); margin: 0 auto 12px; }
     .sheet-topo { display: flex; justify-content: space-between; align-items: center; }
     .sheet-topo h2 { font-size: 1.35rem; letter-spacing: -.02em; }
-    .abas { position: relative; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 14px 0 16px; padding: 2px 0; }
-    .abas::-webkit-scrollbar { display: none; }
-    .aba { position: relative; z-index: 1; flex-shrink: 0; padding: 8px 14px; font-size: 0.76rem; background: transparent; color: var(--mu); transition: color var(--t-medio); }
+    .abas { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 14px 0 16px; }
+    .aba { position: relative; z-index: 1; min-width: 0; padding: 9px 6px; font-size: 0.76rem; text-align: center; justify-content: center; background: transparent; color: var(--mu); transition: color var(--t-medio); }
     .aba.ativa { color: #000; border-color: transparent; }
-    .aba-indicador { position: absolute; z-index: 0; top: 2px; left: 0; height: calc(100% - 4px); width: 0; border-radius: var(--r-pill); background: var(--tx); transition: transform var(--t-medio) var(--mola), width var(--t-medio) var(--mola); }
+    .aba-indicador { position: absolute; z-index: 0; top: 0; left: 0; height: 0; width: 0; border-radius: var(--r-pill); background: var(--tx); transition: transform var(--t-medio) var(--mola), width var(--t-medio) var(--mola); }
     .aba-conteudo { display: none; }
     .aba-conteudo.ativa { display: block; animation: fadeIn var(--t-medio) ease both; }
 
@@ -1233,12 +1232,8 @@
       const ativa = document.querySelector('.aba.ativa');
       if (!ind || !ativa) return;
       ind.style.width = ativa.offsetWidth + 'px';
-      ind.style.transform = `translateX(${ativa.offsetLeft}px)`;
-      const abas = document.getElementById('abas');
-      if (abas) {
-        const alvo = ativa.offsetLeft - (abas.clientWidth - ativa.offsetWidth) / 2;
-        abas.scrollLeft = Math.max(0, alvo);
-      }
+      ind.style.height = ativa.offsetHeight + 'px';
+      ind.style.transform = `translate(${ativa.offsetLeft}px, ${ativa.offsetTop}px)`;
     }
 
     function copiarChavePix() {
