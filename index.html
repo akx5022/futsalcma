@@ -404,6 +404,18 @@
   </div>
 
   <!-- Níveis (secreto: 5 toques na marca do topo) -->
+  <!-- "Quem é?": nome do grupo que não está na lista de jogadores -->
+  <div class="modal-fundo" id="quemModal">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-topo"><h2 id="quemTitulo">Quem é?</h2></div>
+      <p class="texto-mu">Esse nome não está na lista de jogadores. Toque em quem é, cadastre como novo ou tire da pelada.</p>
+      <input type="text" id="quemBusca" placeholder="Buscar na lista..." autocomplete="off" oninput="renderQuemOpcoes()" />
+      <div id="quemOpcoes" class="sugestoes" style="max-height:220px; overflow-y:auto;"></div>
+      <button class="btn-primario btn-bloco" id="quemCadastrar" onclick="quemCadastrarNovo()">Cadastrar como novo jogador</button>
+      <button class="btn-bloco" style="margin-top:8px; background:transparent; color:var(--mu);" onclick="quemPular()">Tirar (não vai jogar)</button>
+    </div>
+  </div>
+
   <div class="modal-fundo" id="niveisModal">
     <div class="modal">
       <div class="modal-topo">
@@ -618,7 +630,7 @@
     function coletarEstado() {
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
-        golsA, golsB, mensalistas, golsJogadores, golsPartida,
+        golsA, golsB, mensalistas, golsJogadores, golsPartida, jogadoresExtras,
         golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas, ultimoEvento,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
@@ -643,6 +655,7 @@
       if ('golsPartida' in estado) golsPartida = estado.golsPartida || {};
       else if (!temTimesNoEstado || (!estado.golsA && !estado.golsB)) golsPartida = {};
       if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
+      if (Array.isArray(estado.jogadoresExtras)) jogadoresExtras = estado.jogadoresExtras;
       golsTime = estado.golsTime || {};
       derrotasTimes = estado.derrotasTimes || {};
       derrotasJogadores = estado.derrotasJogadores || {};
@@ -1764,18 +1777,87 @@
       'TIKIN', 'VALTON', 'VICTOR', 'VINICIUS', 'WERIKE', 'YURI'
     ];
     let selecionadosSorteio = [];
+    let jogadoresExtras = []; // cadastrados pelo app ("Quem é?") — vão para a nuvem
 
     function semAcento(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
 
-    // Só os nomes da lista pronta que comecem (em alguma palavra) com o texto digitado
-    function sugestoesPara(texto) {
+    function listaCadastrada() {
+      return Array.from(new Set([...LISTA_JOGADORES, ...jogadoresExtras].map(limparNome))).sort((a, b) => a.localeCompare(b));
+    }
+
+    // Nomes da lista com alguma palavra começando com o texto digitado
+    function filtrarLista(texto) {
       const q = semAcento(texto.trim());
       if (!q) return [];
-      return LISTA_JOGADORES.map(limparNome)
-        .filter(n => !selecionadosSorteio.includes(n) && semAcento(n).split(/\s+/).some(p => p.startsWith(q)))
-        .sort((a, b) => a.localeCompare(b))
-        .slice(0, 15);
+      return listaCadastrada().filter(n => semAcento(n).split(/\s+/).some(p => p.startsWith(q)));
     }
+
+    function sugestoesPara(texto) {
+      return filtrarLista(texto).filter(n => !selecionadosSorteio.includes(n)).slice(0, 15);
+    }
+
+    // Acha o jogador da lista para um nome vindo do grupo:
+    // igual (sem acento) → ele; "HAMILTON JR" com HAMILTON cadastrado → HAMILTON; senão null (perguntar)
+    function resolverNome(nome) {
+      const lista = listaCadastrada();
+      const alvo = semAcento(nome);
+      const exato = lista.find(n => semAcento(n) === alvo);
+      if (exato) return exato;
+      const partes = alvo.split(/\s+/);
+      const prefixos = lista.filter(n => {
+        const p = semAcento(n).split(/\s+/);
+        return p.length < partes.length && p.every((w, i) => w === partes[i]);
+      });
+      return prefixos.length ? prefixos.sort((a, b) => b.length - a.length)[0] : null;
+    }
+
+    // ===== "QUEM É?" — pergunta os nomes que não estão na lista =====
+    let quemFila = [], quemResolvidos = [], quemDepois = null;
+
+    function resolverComPergunta(nomes, depois) {
+      quemResolvidos = []; quemFila = []; quemDepois = depois;
+      nomes.forEach(n => { const r = resolverNome(n); if (r) adicionarResolvido(r); else quemFila.push(n); });
+      proximoQuem();
+    }
+
+    function adicionarResolvido(n) { if (!quemResolvidos.includes(n)) quemResolvidos.push(n); }
+
+    function proximoQuem() {
+      const modal = document.getElementById('quemModal');
+      if (!quemFila.length) {
+        modal.classList.remove('aberto');
+        const cb = quemDepois; quemDepois = null;
+        if (cb) cb(quemResolvidos.slice());
+        return;
+      }
+      const nome = quemFila[0];
+      document.getElementById('quemTitulo').innerText = `Quem é "${nome}"?`;
+      document.getElementById('quemCadastrar').innerText = `Cadastrar "${nome}" como novo jogador`;
+      const busca = document.getElementById('quemBusca');
+      busca.value = semAcento(nome).split(/\s+/)[0].slice(0, 3);
+      if (!filtrarLista(busca.value).length) busca.value = '';
+      renderQuemOpcoes();
+      modal.classList.add('aberto');
+    }
+
+    function renderQuemOpcoes() {
+      const q = document.getElementById('quemBusca').value;
+      const lista = q.trim() ? filtrarLista(q) : listaCadastrada();
+      document.getElementById('quemOpcoes').innerHTML = lista.length
+        ? lista.map(n => `<button class="chip-sugestao" onclick="quemEscolher('${String(n).replace(/'/g, "\\'")}')">${n}</button>`).join('')
+        : '<span class="vazio" style="margin:0;">Ninguém na lista com esse nome</span>';
+    }
+
+    function quemEscolher(n) { adicionarResolvido(n); quemFila.shift(); proximoQuem(); }
+
+    function quemCadastrarNovo() {
+      const n = quemFila.shift();
+      if (!listaCadastrada().includes(n)) { jogadoresExtras.push(n); salvarEstado(); }
+      adicionarResolvido(n);
+      proximoQuem();
+    }
+
+    function quemPular() { quemFila.shift(); proximoQuem(); }
 
     function buscarJogador() {
       const inp = document.getElementById('buscaJogador');
@@ -1822,6 +1904,11 @@
       // Nomes colados + nomes escolhidos na busca (sem repetir)
       let nomes = Array.from(new Set([...texto.split('\n').map(limparNome), ...selecionadosSorteio].filter(n => n.length > 0)));
       if (!nomes.length) return alert("Digite os nomes dos jogadores!");
+      // Confere cada nome com a lista (troca "HAMILTON JR" por HAMILTON, pergunta quem não é conhecido)
+      resolverComPergunta(nomes, iniciarSorteio);
+    }
+
+    function iniciarSorteio(nomes) {
       if (nomes.length < 4) return alert("Cadastre pelo menos 4 jogadores para formar 1 time!");
       selecionadosSorteio = []; renderSelecionados();
 
@@ -1864,10 +1951,17 @@
     }
 
     function adicionarNovoJogador() {
-      const input = document.getElementById('novoJogadorNome');
-      const nome = limparNome(input.value);
-      if (!nome) return alert("Digite o nome do jogador!");
+      const nomeDigitado = limparNome(document.getElementById('novoJogadorNome').value);
+      if (!nomeDigitado) return alert("Digite o nome do jogador!");
+      // Confere com a lista (pergunta "Quem é?" se não conhecer)
+      resolverComPergunta([nomeDigitado], (r) => {
+        if (r.length) incluirJogadorNaPelada(r[0]);
+        else document.getElementById('novoJogadorNome').value = '';
+      });
+    }
 
+    function incluirJogadorNaPelada(nome) {
+      const input = document.getElementById('novoJogadorNome');
       snapshotEstado();
       registrarPagante(nome);
       if (vitoriasJogadores[nome] === undefined) vitoriasJogadores[nome] = 0;
