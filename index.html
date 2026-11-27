@@ -643,7 +643,7 @@
     function coletarEstado() {
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
-        golsA, golsB, mensalistas, golsJogadores, golsPartida, jogadoresCadastrados,
+        golsA, golsB, mensalistas, golsJogadores, golsPartida, jogadoresCadastrados, listaRevisao: LISTA_REVISAO,
         golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas, ultimoEvento,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
@@ -672,6 +672,7 @@
       // e junta os que foram cadastrados pelo "Quem é?" na versão anterior.
       if (Array.isArray(estado.jogadoresCadastrados)) jogadoresCadastrados = estado.jogadoresCadastrados;
       else if (Array.isArray(estado.jogadoresExtras)) jogadoresCadastrados = Array.from(new Set([...jogadoresCadastrados, ...estado.jogadoresExtras]));
+      if (!(estado.listaRevisao >= LISTA_REVISAO)) jogadoresCadastrados = Array.from(new Set([...jogadoresCadastrados, ...ADICOES_LISTA]));
       atualizarCadastroUI();
       golsTime = estado.golsTime || {};
       derrotasTimes = estado.derrotasTimes || {};
@@ -1298,6 +1299,7 @@
       const set = new Set();
       Object.keys(estrelas).forEach(n => set.add(n));
       Object.keys(pagamentos).forEach(n => set.add(n));
+      listaCadastrada().forEach(n => set.add(n)); // todos os jogadores cadastrados aparecem nos Níveis
       return Array.from(set).sort((a, b) => a.localeCompare(b));
     }
 
@@ -1353,7 +1355,8 @@
           estrelasHtml += `<button class="estrela-btn ${i <= e ? 'on' : ''}" onclick="definirEstrela('${seguro}', ${i})">★</button>`;
         }
         // ✕ só para quem não está na pelada de hoje (o sorteio ainda precisa de quem joga)
-        const remover = jogaHoje(n)
+        // Cadastrados saem pela aba Jogadores; aqui o ✕ é só para nomes avulsos (antigos/errados)
+        const remover = (jogaHoje(n) || listaCadastrada().includes(n))
           ? '<span class="nivel-sem-remover"></span>'
           : `<button class="btn-icone btn-sair" aria-label="Remover ${n} dos níveis" onclick="removerJogadorNivel('${seguro}')">${icone('x', 14)}</button>`;
         return `<div class="nivel-item" data-nome="${n}"><span class="nivel-nome">${n} <span class="nivel-badge">${e}★</span></span><div class="nivel-acoes"><div class="nivel-estrelas">${estrelasHtml}</div>${remover}</div></div>`;
@@ -1366,7 +1369,7 @@
     }
 
     function removerJogadorNivel(nome) {
-      if (jogaHoje(nome)) return;
+      if (jogaHoje(nome) || listaCadastrada().includes(nome)) return;
       if (!confirm(`Remover ${nome} dos níveis?`)) return;
       snapshotEstado();
       delete estrelas[nome];
@@ -1792,8 +1795,11 @@
       'DENER', 'EDÃO', 'GABRIEL', 'HAMILTON', 'HEBERT', 'IAM FELIPE', 'JHONATA', 'JOÃO MARCOS',
       'JOÃO MIGUEL', 'JOÃOZINHO', 'JULIO', 'KALEBE', 'LEONE', 'LUCAS', 'MAICON DOUGLAS', 'MESSIAS',
       'MICHAEL', 'PABLO', 'PAULO', 'PEDRO ANTONIO', 'RAFAEL', 'REITTER', 'SAMU', 'SAMUEL V',
-      'TIKIN', 'VALTON', 'VICTOR', 'VINICIUS', 'WERIKE', 'YURI'
+      'TIKIN', 'VALTON', 'VICTOR', 'VINICIUS', 'WERIKE', 'YURI', 'DUDU'
     ];
+    // Nomes adicionados à lista pronta depois que ela passou a ficar na nuvem (entram 1 vez)
+    const LISTA_REVISAO = 1;
+    const ADICOES_LISTA = ['DUDU'];
     let selecionadosSorteio = [];
     // Lista editável (aba Jogadores), salva na nuvem. Começa com a lista pronta acima.
     let jogadoresCadastrados = LISTA_JOGADORES.slice();
