@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#000000">
+  <!-- Instalar como app no celular (PWA) -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pelada CMA">
   <title>Futebol de Segunda da Sal CMA</title>
 
   <!-- Fonte: Space Grotesk -->
@@ -2533,6 +2539,11 @@
 
     // Inicia a sincronização com a nuvem assim que a página abre
     document.addEventListener('DOMContentLoaded', () => { preencherIcones(); iniciarNuvem(); });
+
+    // Permite instalar como app (o service worker não guarda cache)
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
   </script>
 </body>
 </html>
