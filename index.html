@@ -347,6 +347,7 @@
         <button class="aba" id="tabHistoricoBtn" onclick="mudarAba('historico')">Histórico</button>
         <button class="aba" id="tabCobrancaBtn" onclick="mudarAba('cobranca')">Cobrança</button>
         <button class="aba" id="tabPixBtn" onclick="mudarAba('pix')">Pix</button>
+        <button class="aba" id="tabJogadoresBtn" onclick="mudarAba('jogadores')">Jogadores</button>
       </div>
 
       <!-- Pagantes -->
@@ -380,6 +381,16 @@
       <div class="aba-conteudo" id="abaCobrancaView">
         <p class="texto-mu">Pagamentos da pelada atual e da anterior. Toque em Pago/Deve para alternar.</p>
         <div id="conteudoCobranca"><p class="vazio">Abra esta aba para carregar...</p></div>
+      </div>
+
+      <!-- Jogadores cadastrados (lista usada na busca e no "Quem é?") -->
+      <div class="aba-conteudo" id="abaJogadoresView">
+        <div class="linha-add">
+          <input type="text" id="inputCadastroJogador" placeholder="Nome do novo jogador..." onkeydown="if (event.key === 'Enter') cadastrarJogador()" />
+          <button class="btn-primario" onclick="cadastrarJogador()">Add</button>
+        </div>
+        <div class="rotulo" id="cadastroQtd"></div>
+        <div id="listaCadastro"></div>
       </div>
 
       <!-- Pix -->
@@ -632,7 +643,7 @@
     function coletarEstado() {
       return {
         times, contadorTimes, pagamentos, vitoriasTimes, vitoriasJogadores,
-        golsA, golsB, mensalistas, golsJogadores, golsPartida, jogadoresExtras,
+        golsA, golsB, mensalistas, golsJogadores, golsPartida, jogadoresCadastrados,
         golsTime, derrotasTimes, derrotasJogadores, coresTimes, modoJogo, estrelas, ultimoEvento,
         timerRodando: rodando, timerFim: tempoFinalTimestamp, timerRestante: tempoRestanteSeg
       };
@@ -657,7 +668,11 @@
       if ('golsPartida' in estado) golsPartida = estado.golsPartida || {};
       else if (!temTimesNoEstado || (!estado.golsA && !estado.golsB)) golsPartida = {};
       if (Array.isArray(estado.mensalistas)) mensalistas = estado.mensalistas;
-      if (Array.isArray(estado.jogadoresExtras)) jogadoresExtras = estado.jogadoresExtras;
+      // Lista de jogadores cadastrados (editável na aba Jogadores). Estados antigos: mantém a atual
+      // e junta os que foram cadastrados pelo "Quem é?" na versão anterior.
+      if (Array.isArray(estado.jogadoresCadastrados)) jogadoresCadastrados = estado.jogadoresCadastrados;
+      else if (Array.isArray(estado.jogadoresExtras)) jogadoresCadastrados = Array.from(new Set([...jogadoresCadastrados, ...estado.jogadoresExtras]));
+      atualizarCadastroUI();
       golsTime = estado.golsTime || {};
       derrotasTimes = estado.derrotasTimes || {};
       derrotasJogadores = estado.derrotasJogadores || {};
@@ -1191,7 +1206,8 @@
       relatorio: { botao: 'tabRelatorioBtn', view: 'abaRelatorioView', carregar: () => atualizarRelatorioUI() },
       historico: { botao: 'tabHistoricoBtn', view: 'abaHistoricoView', carregar: () => carregarHistorico() },
       cobranca:  { botao: 'tabCobrancaBtn',  view: 'abaCobrancaView',  carregar: () => carregarCobranca() },
-      pix:       { botao: 'tabPixBtn',       view: 'abaPixView',       carregar: () => {} }
+      pix:       { botao: 'tabPixBtn',       view: 'abaPixView',       carregar: () => {} },
+      jogadores: { botao: 'tabJogadoresBtn', view: 'abaJogadoresView', carregar: () => atualizarCadastroUI() }
     };
 
     function mudarAba(aba) {
@@ -1779,12 +1795,60 @@
       'TIKIN', 'VALTON', 'VICTOR', 'VINICIUS', 'WERIKE', 'YURI'
     ];
     let selecionadosSorteio = [];
-    let jogadoresExtras = []; // cadastrados pelo app ("Quem é?") — vão para a nuvem
+    // Lista editável (aba Jogadores), salva na nuvem. Começa com a lista pronta acima.
+    let jogadoresCadastrados = LISTA_JOGADORES.slice();
 
     function semAcento(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase(); }
 
     function listaCadastrada() {
-      return Array.from(new Set([...LISTA_JOGADORES, ...jogadoresExtras].map(limparNome))).sort((a, b) => a.localeCompare(b));
+      return Array.from(new Set(jogadoresCadastrados.map(limparNome))).sort((a, b) => a.localeCompare(b));
+    }
+
+    // ----- Aba Jogadores: cadastrar, editar, remover -----
+    function atualizarCadastroUI() {
+      const c = document.getElementById('listaCadastro');
+      if (!c) return;
+      const lista = listaCadastrada();
+      document.getElementById('cadastroQtd').innerText = `${lista.length} jogadores cadastrados`;
+      c.innerHTML = lista.map(n => {
+        const s = String(n).replace(/'/g, "\\'");
+        return `<div class="pagante"><span>${n}</span><span class="pagante-acoes">
+          <button class="btn-icone" aria-label="Editar ${n}" onclick="editarCadastro('${s}')">${icone('pencil', 15)}</button>
+          <button class="btn-icone btn-sair" aria-label="Remover ${n}" onclick="removerCadastro('${s}')">${icone('x', 15)}</button>
+        </span></div>`;
+      }).join('') || '<p class="vazio">Nenhum jogador cadastrado.</p>';
+    }
+
+    function cadastrarJogador() {
+      const inp = document.getElementById('inputCadastroJogador');
+      const nome = limparNome(inp.value);
+      if (!nome) return;
+      if (listaCadastrada().includes(nome)) return alert(`${nome} já está cadastrado.`);
+      snapshotEstado();
+      jogadoresCadastrados.push(nome);
+      inp.value = '';
+      atualizarCadastroUI();
+      salvarEstado();
+    }
+
+    function editarCadastro(nome) {
+      const digitado = prompt('Novo nome do jogador:', nome);
+      if (digitado === null) return;
+      const novo = limparNome(digitado);
+      if (!novo || novo === nome) return;
+      if (listaCadastrada().includes(novo)) return alert(`${novo} já está cadastrado.`);
+      snapshotEstado();
+      jogadoresCadastrados = jogadoresCadastrados.map(n => (limparNome(n) === nome ? novo : n));
+      atualizarCadastroUI();
+      salvarEstado();
+    }
+
+    function removerCadastro(nome) {
+      if (!confirm(`Remover ${nome} da lista de jogadores?`)) return;
+      snapshotEstado();
+      jogadoresCadastrados = jogadoresCadastrados.filter(n => limparNome(n) !== nome);
+      atualizarCadastroUI();
+      salvarEstado();
     }
 
     // Nomes da lista com alguma palavra começando com o texto digitado
@@ -1859,7 +1923,7 @@
         const nome = quemFila[i];
         if (v === '__tirar__') return;
         if (v === '__novo__') {
-          if (!listaCadastrada().includes(nome)) { jogadoresExtras.push(nome); cadastrouNovo = true; }
+          if (!listaCadastrada().includes(nome)) { jogadoresCadastrados.push(nome); cadastrouNovo = true; }
           adicionarResolvido(nome);
         } else {
           adicionarResolvido(v);
