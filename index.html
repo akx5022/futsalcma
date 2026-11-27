@@ -870,13 +870,13 @@
     });
 
     // Salva: grava local na hora e envia pra nuvem (com pequeno atraso)
-    function salvarEstado() {
+    function salvarEstado(imediato) {
       if (sincronizando) return; // não re-salvar o que acabou de chegar da nuvem
 
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(coletarEstado())); } catch (e) {}
 
       clearTimeout(salvarTimeout);
-      salvarTimeout = setTimeout(enviarParaNuvem, 400);
+      salvarTimeout = setTimeout(enviarParaNuvem, imediato ? 0 : 400); // cronômetro vai na hora
     }
 
     async function enviarParaNuvem() {
@@ -1634,9 +1634,40 @@
       if (status) status.innerText = rodando ? '● ao vivo' : '';
     }
 
+    // ===== RELÓGIO COMUM =====
+    // Cada aparelho tem o relógio um pouco diferente (segundos de diferença). O cronômetro usa
+    // a hora do SERVIDOR do site (cabeçalho "Date"), assim todos mostram o mesmo tempo.
+    let offsetRelogio = 0; // ms a somar ao relógio deste aparelho para chegar na hora do servidor
+    function agora() { return Date.now() + offsetRelogio; }
+
+    async function calibrarRelogio() {
+      if (typeof fetch === 'undefined' || location.protocol === 'file:') return;
+      // O "Date" do servidor só tem segundos. Fazemos requisições seguidas até o segundo virar:
+      // a virada aconteceu entre as duas últimas medições → precisão de ~0,1 s.
+      let anterior = null;
+      try {
+        for (let i = 0; i < 30; i++) {
+          const t0 = Date.now();
+          const r = await fetch('/manifest.webmanifest?relogio=' + t0, { method: 'HEAD', cache: 'no-store' });
+          const t1 = Date.now();
+          const d = Date.parse(r.headers.get('date'));
+          if (isNaN(d)) return;
+          const meio = (t0 + t1) / 2;
+          if (anterior && d > anterior.d) {
+            offsetRelogio = Math.round(d - (anterior.meio + meio) / 2);
+            if (rodando) tickTimer();
+            return;
+          }
+          anterior = { d, meio };
+          await new Promise(ok => setTimeout(ok, 60));
+        }
+        if (anterior) offsetRelogio = Math.round(anterior.d + 500 - anterior.meio); // sem virada: aproximação
+      } catch (e) { /* sem rede: fica com o relógio do aparelho */ }
+    }
+
     function tickTimer() {
       if (!rodando) return;
-      const restante = Math.round((tempoFinalTimestamp - Date.now()) / 1000);
+      const restante = Math.round((tempoFinalTimestamp - agora()) / 1000);
       if (restante > 0) {
         tempoRestanteSeg = restante;
         atualizarDisplayTimer();
@@ -1659,7 +1690,7 @@
       atualizarBotoesTimer();
       // Toca a sirene 1x por partida e apenas se o tempo ACABOU de expirar
       // (evita que quem abre a página depois do tempo esgotado ouça a sirene atrasada).
-      if (ultimoAlarmeFim !== tempoFinalTimestamp && tempoFinalTimestamp && (Date.now() - tempoFinalTimestamp) < 12000) {
+      if (ultimoAlarmeFim !== tempoFinalTimestamp && tempoFinalTimestamp && (agora() - tempoFinalTimestamp) < 12000) {
         ultimoAlarmeFim = tempoFinalTimestamp;
         tocarAlarme();
       }
@@ -1699,19 +1730,19 @@
         }
 
         if (tempoRestanteSeg <= 0) tempoRestanteSeg = duracaoJogoSeg();
-        tempoFinalTimestamp = Date.now() + (tempoRestanteSeg * 1000);
+        tempoFinalTimestamp = agora() + (tempoRestanteSeg * 1000);
         rodando = true;
         iniciarTickLocal();
       } else {
         // Pausa: congela o tempo restante no momento
-        tempoRestanteSeg = Math.max(0, Math.round((tempoFinalTimestamp - Date.now()) / 1000));
+        tempoRestanteSeg = Math.max(0, Math.round((tempoFinalTimestamp - agora()) / 1000));
         rodando = false;
         clearInterval(timerInterval); timerInterval = null;
       }
 
       atualizarBotoesTimer();
       atualizarDisplayTimer();
-      salvarEstado(); // propaga o cronômetro para todos os aparelhos
+      salvarEstado(true); // propaga o cronômetro para todos os aparelhos (sem espera)
     }
 
     function resetTimer() {
@@ -2538,7 +2569,9 @@
     }
 
     // Inicia a sincronização com a nuvem assim que a página abre
-    document.addEventListener('DOMContentLoaded', () => { preencherIcones(); iniciarNuvem(); });
+    document.addEventListener('DOMContentLoaded', () => { preencherIcones(); calibrarRelogio(); iniciarNuvem(); });
+    // Recalibra ao voltar para o app (o relógio do aparelho pode ter sido ajustado)
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) calibrarRelogio(); });
 
     // Permite instalar como app (o service worker não guarda cache)
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
